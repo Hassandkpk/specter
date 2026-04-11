@@ -57,10 +57,6 @@ async function resolveHandle(yt: youtube_v3.Youtube, handle: string): Promise<st
   } catch {}
   try {
     const res = await yt.search.list({ q: clean, part: ['snippet'], type: ['channel'], maxResults: 5 });
-    for (const item of res.data.items || []) {
-      if (item.snippet?.customUrl?.toLowerCase().includes(clean.toLowerCase()))
-        return item.snippet.channelId!;
-    }
     if (res.data.items?.[0]) return res.data.items[0].snippet?.channelId || null;
   } catch {}
   return null;
