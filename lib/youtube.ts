@@ -97,7 +97,7 @@ export async function scanKeyword(apiKey: string, keyword: string, maxResults = 
 
   const vRes = await yt.videos.list({ part: ['snippet', 'statistics', 'contentDetails'], id: ids });
   const videos = filterLong(vRes.data.items || []);
-  const subMap = await getSubCounts(yt, videos.map(v => v.snippet?.channelId!).filter(Boolean));
+  const subMap = await getSubCounts(yt, videos.map(v => v.snippet?.channelId ?? '').filter(Boolean));
 
   return videos.map(v => {
     const { views, hoursSinceUpload, velocity } = calcVelocity(v);
