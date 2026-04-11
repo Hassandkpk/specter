@@ -105,7 +105,7 @@ export async function scanKeyword(apiKey: string, keyword: string, maxResults = 
       views, hoursSinceUpload, velocity,
       subscribers: subMap[channelId] || 0,
       link: `https://www.youtube.com/watch?v=${v.id}`,
-      sourceType: 'keyword',
+      sourceType: 'keyword' as const,
       keyword,
     };
   }).sort((a, b) => b.velocity - a.velocity);
@@ -132,7 +132,7 @@ export async function scanCompetitors(apiKey: string, competitors: Competitor[],
           views, hoursSinceUpload, velocity,
           subscribers: subMap[channelId] || 0,
           link: `https://www.youtube.com/watch?v=${v.id}`,
-          sourceType: 'competitor',
+          sourceType: 'competitor' as const,
           competitor: comp.name,
         });
       }
@@ -162,7 +162,7 @@ export async function getOwnChannelTopVideos(apiKey: string, handle: string, day
       views, hoursSinceUpload, velocity,
       subscribers: subMap[channelId] || 0,
       link: `https://www.youtube.com/watch?v=${v.id}`,
-      sourceType: 'keyword',
+      sourceType: 'keyword' as const,
     };
   }).sort((a, b) => b.views - a.views).slice(0, 3);
 }
