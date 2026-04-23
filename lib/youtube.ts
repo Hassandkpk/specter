@@ -1,5 +1,5 @@
 import { google, youtube_v3 } from 'googleapis';
-import type { VideoResult, Competitor } from '@/types';
+import type { VideoResult, Competitor, DiscoveredChannel } from '@/types';
 
 function getClient(apiKey: string) {
   return google.youtube({ version: 'v3', auth: apiKey });
@@ -49,14 +49,29 @@ async function getSubCounts(yt: youtube_v3.Youtube, ids: string[]): Promise<Reco
   return map;
 }
 
-async function resolveHandle(yt: youtube_v3.Youtube, handle: string): Promise<string | null> {
-  const clean = handle.replace('@', '');
+async function resolveHandle(yt: youtube_v3.Youtube, input: string): Promise<string | null> {
+  const trimmed = input.trim();
+
+  // Direct channel ID (UC...)
+  if (/^UC[\w-]{20,}$/.test(trimmed)) return trimmed;
+
+  // Extract from YouTube URLs
+  const channelIdMatch = trimmed.match(/youtube\.com\/channel\/(UC[\w-]+)/);
+  if (channelIdMatch) return channelIdMatch[1];
+
+  let slug = trimmed;
+  const handleMatch = trimmed.match(/youtube\.com\/@([\w.-]+)/);
+  const customMatch = trimmed.match(/youtube\.com\/(?:c|user)\/([\w.-]+)/);
+  if (handleMatch) slug = handleMatch[1];
+  else if (customMatch) slug = customMatch[1];
+  else slug = trimmed.replace('@', '');
+
   try {
-    const res = await yt.channels.list({ part: ['id'], forHandle: clean });
+    const res = await yt.channels.list({ part: ['id'], forHandle: slug });
     if (res.data.items?.[0]) return res.data.items[0].id!;
   } catch {}
   try {
-    const res = await yt.search.list({ q: clean, part: ['snippet'], type: ['channel'], maxResults: 5 });
+    const res = await yt.search.list({ q: slug, part: ['snippet'], type: ['channel'], maxResults: 5 });
     if (res.data.items?.[0]) return res.data.items[0].snippet?.channelId || null;
   } catch {}
   return null;
@@ -117,7 +132,7 @@ export async function searchSimilarChannels(
   apiKey: string,
   queries: string[],
   excludeId: string
-): Promise<Competitor[]> {
+): Promise<DiscoveredChannel[]> {
   const yt = getClient(apiKey);
 
   const discoveredIds = new Set<string>();
@@ -150,6 +165,9 @@ export async function searchSimilarChannels(
       handle: item.snippet?.customUrl
         ? (item.snippet.customUrl.startsWith('@') ? item.snippet.customUrl : `@${item.snippet.customUrl}`)
         : `@${item.id}`,
+      channelId: item.id!,
+      subscribers: parseInt(item.statistics?.subscriberCount || '0'),
+      avatar: item.snippet?.thumbnails?.default?.url || '',
     }));
 }
 

@@ -17,6 +17,14 @@ export interface VideoResult {
   competitor?: string;
 }
 
+export interface DiscoveredChannel {
+  name: string;
+  handle: string;
+  channelId: string;
+  subscribers: number;
+  avatar: string;
+}
+
 export interface GeneratedResult {
   originalTitle: string;
   generatedTitle: string;

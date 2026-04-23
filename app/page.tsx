@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { VideoResult, GeneratedResult } from '@/types';
+import type { VideoResult, GeneratedResult, DiscoveredChannel } from '@/types';
 
 function getVideoId(link: string) {
   return link.split('v=')[1]?.split('&')[0] || '';
@@ -33,6 +33,7 @@ export default function Home() {
   const [seedChannel, setSeedChannel] = useState('');
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [discoverError, setDiscoverError] = useState('');
+  const [discoveredChannels, setDiscoveredChannels] = useState<DiscoveredChannel[]>([]);
 
   // results
   const [step, setStep] = useState<Step>('idle');
@@ -49,6 +50,7 @@ export default function Home() {
   const discoverChannels = async () => {
     if (!ytKey || !anthropicKey || !seedChannel.trim()) return;
     setDiscoverError('');
+    setDiscoveredChannels([]);
     setIsDiscovering(true);
     try {
       const res = await fetch('/api/discover-channels', {
@@ -58,8 +60,9 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const handles = (data.channels as { name: string; handle: string }[]).map(c => c.handle);
-      setCompetitors([...handles, '', '', '', '', ''].slice(0, 5));
+      const channels = data.channels as DiscoveredChannel[];
+      setDiscoveredChannels(channels);
+      setCompetitors([...channels.map(c => c.handle), '', '', '', '', ''].slice(0, 5));
     } catch (e) {
       setDiscoverError(e instanceof Error ? e.message : 'Discovery failed');
     } finally {
@@ -243,7 +246,7 @@ export default function Home() {
                 type="text"
                 value={seedChannel}
                 onChange={e => setSeedChannel(e.target.value)}
-                placeholder="@seedchannel"
+                placeholder="@handle, channel URL, ID, or name"
                 className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <button
@@ -266,6 +269,36 @@ export default function Home() {
               <p className="text-xs text-red-600 mt-1">{discoverError}</p>
             )}
           </div>
+
+          {/* Discovered channel cards */}
+          {discoveredChannels.length > 0 && (
+            <div className="mb-5">
+              <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
+                {discoveredChannels.length} channels found — auto-filled below
+              </p>
+              <div className="flex gap-3 overflow-x-auto pb-1">
+                {discoveredChannels.map((ch, i) => (
+                  <a
+                    key={i}
+                    href={`https://www.youtube.com/${ch.handle}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 w-36 bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col items-center gap-2 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                  >
+                    {ch.avatar ? (
+                      <img src={ch.avatar} alt={ch.name} className="w-12 h-12 rounded-full object-cover bg-gray-200" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-lg font-bold">
+                        {ch.name.charAt(0)}
+                      </div>
+                    )}
+                    <p className="text-xs font-semibold text-gray-800 text-center leading-tight line-clamp-2">{ch.name}</p>
+                    <p className="text-xs text-gray-400">{fmt(ch.subscribers)} subs</p>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mb-5">
             <span className="text-sm font-medium text-gray-700 block mb-2">Top 5 Competitor Channels</span>
