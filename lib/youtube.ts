@@ -106,6 +106,7 @@ export async function getChannelFingerprint(apiKey: string, handle: string): Pro
   description: string;
   keywords: string[];
   videoTitles: string[];
+  topTags: string[];
 } | null> {
   const yt = getClient(apiKey);
   const channelId = await resolveHandle(yt, handle);
@@ -119,29 +120,49 @@ export async function getChannelFingerprint(apiKey: string, handle: string): Pro
   const chan = chanRes.data.items?.[0];
   if (!chan) return null;
 
+  // Aggregate tags by frequency — most common tags define the niche
+  const tagFreq = new Map<string, number>();
+  for (const v of recentVideos) {
+    for (const tag of (v.snippet?.tags || [])) {
+      const t = tag.toLowerCase().trim();
+      if (t.length > 3) tagFreq.set(t, (tagFreq.get(t) || 0) + 1);
+    }
+  }
+  const topTags = [...tagFreq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([tag]) => tag);
+
   return {
     channelId,
     channelName: chan.snippet?.title || '',
     description: chan.snippet?.description || '',
     keywords: (chan.brandingSettings?.channel?.keywords || '').split(/[\s,]+/).filter(Boolean),
     videoTitles: recentVideos.map(v => v.snippet?.title || '').filter(Boolean),
+    topTags,
   };
+}
+
+export async function getChannelVideoTitles(apiKey: string, channelId: string, max = 5): Promise<string[]> {
+  const yt = getClient(apiKey);
+  const videos = await getRecentVideos(yt, channelId, max);
+  return videos.map(v => v.snippet?.title || '').filter(Boolean);
 }
 
 export async function searchSimilarChannels(
   apiKey: string,
-  videoTitles: string[],
+  searchTerms: string[],
   excludeId: string
 ): Promise<DiscoveredChannel[]> {
   const yt = getClient(apiKey);
 
-  // Search for videos using the seed channel's own titles as queries.
-  // Channels that appear across multiple searches are niche peers.
+  // Search for videos using niche tags as queries.
+  // Channels appearing across the most searches = strongest niche signal.
   const frequency = new Map<string, number>();
-  for (const title of videoTitles.slice(0, 7)) {
+  for (const term of searchTerms.slice(0, 8)) {
     try {
       const res = await yt.search.list({
-        q: title, part: ['snippet'], type: ['video'], maxResults: 10, order: 'relevance',
+        q: term, part: ['snippet'], type: ['video'], maxResults: 10, order: 'relevance',
       });
       for (const item of res.data.items || []) {
         const cid = item.snippet?.channelId;
@@ -152,7 +173,6 @@ export async function searchSimilarChannels(
 
   if (!frequency.size) return [];
 
-  // Take the most frequently appearing channel IDs first
   const ranked = [...frequency.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([id]) => id)
@@ -163,10 +183,11 @@ export async function searchSimilarChannels(
     id: ranked,
   });
 
+  // Return 8 candidates so Claude has enough to filter down to 5
   return (statsRes.data.items || [])
     .filter(item => parseInt(item.statistics?.subscriberCount || '0') < 10_000_000)
     .sort((a, b) => (frequency.get(b.id!) || 0) - (frequency.get(a.id!) || 0))
-    .slice(0, 5)
+    .slice(0, 8)
     .map(item => ({
       name: item.snippet?.title || '',
       handle: item.snippet?.customUrl

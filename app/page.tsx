@@ -56,11 +56,15 @@ export default function Home() {
       const res = await fetch('/api/discover-channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ytApiKey: ytKey, seedHandle: seedChannel.trim() }),
+        body: JSON.stringify({ ytApiKey: ytKey, anthropicKey, seedHandle: seedChannel.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const channels = data.channels as DiscoveredChannel[];
+      if (!channels.length) {
+        setDiscoverError('No relevant channels found — try a different seed channel.');
+        return;
+      }
       setDiscoveredChannels(channels);
       setCompetitors([...channels.map(c => c.handle), '', '', '', '', ''].slice(0, 5));
     } catch (e) {
@@ -251,7 +255,7 @@ export default function Home() {
               />
               <button
                 onClick={discoverChannels}
-                disabled={isDiscovering || !ytKey || !seedChannel.trim()}
+                disabled={isDiscovering || !ytKey || !anthropicKey || !seedChannel.trim()}
                 className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2"
               >
                 {isDiscovering ? (

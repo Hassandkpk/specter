@@ -5,6 +5,29 @@ function extractText(message: Anthropic.Message): string {
   return block.type === 'text' ? block.text.trim() : '';
 }
 
+export async function verifyChannelRelevance(
+  apiKey: string,
+  seedName: string,
+  seedTitles: string[],
+  candidateName: string,
+  candidateTitles: string[]
+): Promise<boolean> {
+  const client = new Anthropic({ apiKey });
+  const msg = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 5,
+    messages: [{
+      role: 'user',
+      content: `Are these two YouTube channels in the same niche? Reply only "yes" or "no".
+
+Channel A (${seedName}): ${seedTitles.slice(0, 5).join(' | ')}
+
+Channel B (${candidateName}): ${candidateTitles.slice(0, 5).join(' | ')}`,
+    }],
+  });
+  return extractText(msg).toLowerCase().startsWith('yes');
+}
+
 export async function generateNicheQueries(
   apiKey: string,
   channelName: string,
