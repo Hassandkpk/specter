@@ -45,6 +45,7 @@ export default function Home() {
   const [numRemixes, setNumRemixes] = useState(10);
 
   // discovery
+  const [competitorMode, setCompetitorMode] = useState<'auto' | 'manual'>('manual');
   const [seedChannel, setSeedChannel] = useState('');
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [discoverError, setDiscoverError] = useState('');
@@ -254,90 +255,111 @@ export default function Home() {
             </label>
           </div>
 
-          {/* Auto-discover */}
+          {/* Competitor mode toggle */}
           <div className="mb-4">
-            <span className="text-sm font-medium text-gray-700 block mb-2">
-              Auto-discover Competitors{' '}
-              <span className="text-gray-400 font-normal">(paste any channel to find similar ones)</span>
-            </span>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={seedChannel}
-                onChange={e => setSeedChannel(e.target.value)}
-                placeholder="@handle, channel URL, ID, or name"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <button
-                onClick={discoverChannels}
-                disabled={isDiscovering || !ytKey || !anthropicKey || !seedChannel.trim()}
-                className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2"
-              >
-                {isDiscovering ? (
-                  <>
-                    <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Discovering...
-                  </>
-                ) : 'Auto-discover'}
-              </button>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-700">Competitor Channels</span>
+              <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+                <button
+                  onClick={() => setCompetitorMode('manual')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                    competitorMode === 'manual'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Add Manually
+                </button>
+                <button
+                  onClick={() => setCompetitorMode('auto')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                    competitorMode === 'auto'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Auto-discover
+                </button>
+              </div>
             </div>
-            {discoverError && (
-              <p className="text-xs text-red-600 mt-1">{discoverError}</p>
+
+            {competitorMode === 'manual' ? (
+              <div className="grid grid-cols-5 gap-2">
+                {competitors.map((c, i) => (
+                  <input
+                    key={i}
+                    type="text"
+                    value={c}
+                    onChange={e => {
+                      const updated = [...competitors];
+                      updated[i] = e.target.value;
+                      setCompetitors(updated);
+                    }}
+                    placeholder={`@competitor${i + 1}`}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={seedChannel}
+                    onChange={e => setSeedChannel(e.target.value)}
+                    placeholder="@handle, channel URL, ID, or name"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    onClick={discoverChannels}
+                    disabled={isDiscovering || !ytKey || !anthropicKey || !seedChannel.trim()}
+                    className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2"
+                  >
+                    {isDiscovering ? (
+                      <>
+                        <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Discovering...
+                      </>
+                    ) : 'Auto-discover'}
+                  </button>
+                </div>
+                {discoverError && <p className="text-xs text-red-600 mt-1">{discoverError}</p>}
+
+                {discoveredChannels.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
+                      {discoveredChannels.length} channels found
+                    </p>
+                    <div className="flex gap-3 overflow-x-auto pb-1">
+                      {discoveredChannels.map((ch, i) => (
+                        <a
+                          key={i}
+                          href={`https://www.youtube.com/${ch.handle}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-shrink-0 w-36 bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col items-center gap-2 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                        >
+                          {ch.avatar ? (
+                            <img src={ch.avatar} alt={ch.name} className="w-12 h-12 rounded-full object-cover bg-gray-200" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-lg font-bold">
+                              {ch.name.charAt(0)}
+                            </div>
+                          )}
+                          <p className="text-xs font-semibold text-gray-800 text-center leading-tight line-clamp-2">{ch.name}</p>
+                          <p className="text-xs text-gray-400">{fmt(ch.subscribers)} subs</p>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {/* Discovered channel cards */}
-          {discoveredChannels.length > 0 && (
-            <div className="mb-5">
-              <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
-                {discoveredChannels.length} channels found — auto-filled below
-              </p>
-              <div className="flex gap-3 overflow-x-auto pb-1">
-                {discoveredChannels.map((ch, i) => (
-                  <a
-                    key={i}
-                    href={`https://www.youtube.com/${ch.handle}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-shrink-0 w-36 bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col items-center gap-2 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
-                  >
-                    {ch.avatar ? (
-                      <img src={ch.avatar} alt={ch.name} className="w-12 h-12 rounded-full object-cover bg-gray-200" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-lg font-bold">
-                        {ch.name.charAt(0)}
-                      </div>
-                    )}
-                    <p className="text-xs font-semibold text-gray-800 text-center leading-tight line-clamp-2">{ch.name}</p>
-                    <p className="text-xs text-gray-400">{fmt(ch.subscribers)} subs</p>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="mb-5">
-            <span className="text-sm font-medium text-gray-700 block mb-2">Top 5 Competitor Channels</span>
-            <div className="grid grid-cols-5 gap-2">
-              {competitors.map((c, i) => (
-                <input
-                  key={i}
-                  type="text"
-                  value={c}
-                  onChange={e => {
-                    const updated = [...competitors];
-                    updated[i] = e.target.value;
-                    setCompetitors(updated);
-                  }}
-                  placeholder={`@competitor${i + 1}`}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ))}
-            </div>
-          </div>
 
           <div className="flex items-center gap-4 mb-5">
             <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
