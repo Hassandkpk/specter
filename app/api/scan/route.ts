@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scanKeyword, scanCompetitors } from '@/lib/youtube';
-import { checkRateLimit } from '@/lib/ratelimit';
+import { getUserFromToken, checkAndIncrementUsage } from '@/lib/usage';
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const { allowed, remaining } = await checkRateLimit(ip);
+    const token = req.headers.get('authorization')?.split(' ')[1];
+    if (!token) return NextResponse.json({ error: 'Login required' }, { status: 401 });
 
-    if (!allowed) {
-      return NextResponse.json(
-        { error: 'You\'ve used all 10 daily searches. Come back tomorrow.' },
-        { status: 429 }
-      );
-    }
+    const user = await getUserFromToken(token);
+    if (!user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+
+    const { allowed, reason, profile } = await checkAndIncrementUsage(user.id);
+    if (!allowed) return NextResponse.json({ error: reason }, { status: 429 });
 
     const { niche, competitors } = await req.json();
     const ytApiKey = process.env.YOUTUBE_API_KEY!;
@@ -27,7 +26,7 @@ export async function POST(req: NextRequest) {
       .sort((a, b) => b.velocity - a.velocity)
       .slice(0, 10);
 
-    return NextResponse.json({ outliers, remaining });
+    return NextResponse.json({ outliers, profile });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Scan failed' },

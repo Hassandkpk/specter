@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateViralRepeat, generateOutlierRemix, generateMinimalTwist } from '@/lib/claude';
+import { getUserFromToken } from '@/lib/usage';
 import type { VideoResult } from '@/types';
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { anthropicKey, niche, outliers, ownVideos, numRemixes } = await req.json();
+    const token = req.headers.get('authorization')?.split(' ')[1];
+    if (!token) return NextResponse.json({ error: 'Login required' }, { status: 401 });
 
-    // Run all Anthropic calls in parallel to stay under Vercel's timeout
+    const user = await getUserFromToken(token);
+    if (!user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+
+    const { niche, outliers, ownVideos, numRemixes } = await req.json();
+    const anthropicKey = process.env.ANTHROPIC_API_KEY!;
+
     const [viralRepeats, outlierRemixes, minimalTwists] = await Promise.all([
       Promise.all(
         (ownVideos as VideoResult[]).map(async video => ({

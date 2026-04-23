@@ -1,20 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getChannelFingerprint, searchSimilarChannels, getChannelVideoTitles } from '@/lib/youtube';
 import { verifyChannelRelevance } from '@/lib/claude';
+import { getUserFromToken } from '@/lib/usage';
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { anthropicKey, seedHandle } = await req.json();
+    const token = req.headers.get('authorization')?.split(' ')[1];
+    if (!token) return NextResponse.json({ error: 'Login required' }, { status: 401 });
+
+    const user = await getUserFromToken(token);
+    if (!user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+
+    const { seedHandle } = await req.json();
     const ytApiKey = process.env.YOUTUBE_API_KEY!;
+    const anthropicKey = process.env.ANTHROPIC_API_KEY!;
 
     const fingerprint = await getChannelFingerprint(ytApiKey, seedHandle);
     if (!fingerprint) {
       return NextResponse.json({ error: 'Channel not found' }, { status: 404 });
     }
 
-    // Tags are more niche-specific than titles — fall back to titles if tags are sparse
     const searchTerms = fingerprint.topTags.length >= 3
       ? fingerprint.topTags
       : fingerprint.videoTitles;
@@ -28,7 +35,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ channels: [] });
     }
 
-    // Verify each candidate in parallel — fetch their titles then ask Claude
     const results = await Promise.all(
       candidates.map(async ch => {
         try {

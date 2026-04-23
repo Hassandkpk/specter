@@ -33,3 +33,13 @@ export interface GeneratedResult {
   velocity?: number;
   type: 'viral_repeat' | 'outlier_remix' | 'minimal_twist';
 }
+
+export interface Profile {
+  id: string;
+  plan: 'free' | 'paid';
+  daily_runs: number;
+  monthly_runs: number;
+  last_run_date: string | null;
+  last_run_month: string | null;
+  gumroad_license_key: string | null;
+}
