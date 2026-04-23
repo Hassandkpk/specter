@@ -31,5 +31,5 @@ export interface GeneratedResult {
   link: string;
   views: number;
   velocity?: number;
-  type: 'viral_repeat' | 'outlier_remix';
+  type: 'viral_repeat' | 'outlier_remix' | 'minimal_twist';
 }

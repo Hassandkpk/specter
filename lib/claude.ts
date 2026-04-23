@@ -86,6 +86,30 @@ Rules:
   return extractText(msg);
 }
 
+export async function generateMinimalTwist(apiKey: string, originalTitle: string): Promise<string> {
+  const client = new Anthropic({ apiKey });
+  const maxLen = originalTitle.length;
+  const msg = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 100,
+    messages: [{
+      role: 'user',
+      content: `You are a YouTube title optimizer. Make the smallest possible change to improve this title's click-through rate without changing its meaning, structure, or topic.
+
+Original: "${originalTitle}"
+Hard limit: ${maxLen} characters (must not exceed this)
+
+Rules:
+- Change at most 1-2 words only
+- Swap weak words for power words (e.g. "good" → "insane", "tried" → "survived", "big" → "massive")
+- Or add a number/stat if it fits naturally in place of a vague word
+- Keep the exact same sentence structure and angle
+- Output ONLY the new title, nothing else`,
+    }],
+  });
+  return extractText(msg);
+}
+
 export async function generateOutlierRemix(apiKey: string, outlierTitle: string, niche: string): Promise<string> {
   const client = new Anthropic({ apiKey });
   const msg = await client.messages.create({

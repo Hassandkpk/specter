@@ -58,6 +58,7 @@ export default function Home() {
   const [ownVideos, setOwnVideos] = useState<VideoResult[]>([]);
   const [viralRepeats, setViralRepeats] = useState<GeneratedResult[]>([]);
   const [outlierRemixes, setOutlierRemixes] = useState<GeneratedResult[]>([]);
+  const [minimalTwists, setMinimalTwists] = useState<GeneratedResult[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
 
   const isReady = ytKey && anthropicKey && niche && competitors.some(c => c.trim());
@@ -102,6 +103,7 @@ export default function Home() {
     setOwnVideos([]);
     setViralRepeats([]);
     setOutlierRemixes([]);
+    setMinimalTwists([]);
 
     const validCompetitors = competitors
       .filter(c => c.trim())
@@ -156,6 +158,7 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error);
       setViralRepeats(data.viralRepeats);
       setOutlierRemixes(data.outlierRemixes);
+      setMinimalTwists(data.minimalTwists);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Generation failed');
       setStep('idle');
@@ -171,6 +174,7 @@ export default function Home() {
       ...outliers.map(v => ['outlier', v.title, '', v.link, v.views, v.velocity]),
       ...viralRepeats.map(r => ['viral_repeat', r.originalTitle, r.generatedTitle, r.link, r.views, '']),
       ...outlierRemixes.map(r => ['outlier_remix', r.originalTitle, r.generatedTitle, r.link, r.views, r.velocity ?? '']),
+      ...minimalTwists.map(r => ['minimal_twist', r.originalTitle, r.generatedTitle, r.link, r.views, r.velocity ?? '']),
     ];
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
@@ -427,6 +431,45 @@ export default function Home() {
                       <span className="text-gray-400">{fmt(v.views)} views</span>
                       <span className="text-orange-500 font-semibold">{fmt(v.velocity)}/hr</span>
                       <span className="text-gray-400">{Math.round(v.hoursSinceUpload)}h ago</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Minimal Twists */}
+        {minimalTwists.length > 0 && (
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">
+              🟡 10% Twist Titles
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Same title, stronger words — just enough to avoid duplicate content without losing the viral angle.
+            </p>
+            <div className="space-y-3">
+              {minimalTwists.map((r, i) => (
+                <div key={i} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex gap-4 items-start">
+                  <img
+                    src={thumbUrl(r.link)}
+                    alt=""
+                    className="w-28 h-16 object-cover rounded-lg bg-gray-100 flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-400 mb-1 line-clamp-1">
+                      Original: <span className="text-gray-600">{r.originalTitle}</span>
+                    </p>
+                    <div className="flex items-start gap-2">
+                      <p className="flex-1 text-sm font-semibold text-gray-900 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                        {r.generatedTitle}
+                      </p>
+                      <button
+                        onClick={() => copy(r.generatedTitle)}
+                        className="flex-shrink-0 text-xs font-medium px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        {copied === r.generatedTitle ? '✓ Copied' : 'Copy'}
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateViralRepeat, generateOutlierRemix } from '@/lib/claude';
+import { generateViralRepeat, generateOutlierRemix, generateMinimalTwist } from '@/lib/claude';
 import type { VideoResult } from '@/types';
 
 export const maxDuration = 60;
@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     const { anthropicKey, niche, outliers, ownVideos, numRemixes } = await req.json();
 
     // Run all Anthropic calls in parallel to stay under Vercel's timeout
-    const [viralRepeats, outlierRemixes] = await Promise.all([
+    const [viralRepeats, outlierRemixes, minimalTwists] = await Promise.all([
       Promise.all(
         (ownVideos as VideoResult[]).map(async video => ({
           originalTitle: video.title,
@@ -29,9 +29,19 @@ export async function POST(req: NextRequest) {
           type: 'outlier_remix' as const,
         }))
       ),
+      Promise.all(
+        (outliers as VideoResult[]).map(async video => ({
+          originalTitle: video.title,
+          generatedTitle: await generateMinimalTwist(anthropicKey, video.title),
+          link: video.link,
+          views: video.views,
+          velocity: video.velocity,
+          type: 'minimal_twist' as const,
+        }))
+      ),
     ]);
 
-    return NextResponse.json({ viralRepeats, outlierRemixes });
+    return NextResponse.json({ viralRepeats, outlierRemixes, minimalTwists });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Generation failed' },
