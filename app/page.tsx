@@ -29,6 +29,11 @@ export default function Home() {
   const [competitors, setCompetitors] = useState(['', '', '', '', '']);
   const [numRemixes, setNumRemixes] = useState(10);
 
+  // discovery
+  const [seedChannel, setSeedChannel] = useState('');
+  const [isDiscovering, setIsDiscovering] = useState(false);
+  const [discoverError, setDiscoverError] = useState('');
+
   // results
   const [step, setStep] = useState<Step>('idle');
   const [error, setError] = useState('');
@@ -40,6 +45,27 @@ export default function Home() {
 
   const isReady = ytKey && anthropicKey && niche && competitors.some(c => c.trim());
   const isRunning = step !== 'idle' && step !== 'done';
+
+  const discoverChannels = async () => {
+    if (!ytKey || !anthropicKey || !seedChannel.trim()) return;
+    setDiscoverError('');
+    setIsDiscovering(true);
+    try {
+      const res = await fetch('/api/discover-channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ytApiKey: ytKey, anthropicKey, seedHandle: seedChannel.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const handles = (data.channels as { name: string; handle: string }[]).map(c => c.handle);
+      setCompetitors([...handles, '', '', '', '', ''].slice(0, 5));
+    } catch (e) {
+      setDiscoverError(e instanceof Error ? e.message : 'Discovery failed');
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
 
   const copy = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -204,6 +230,41 @@ export default function Home() {
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </label>
+          </div>
+
+          {/* Auto-discover */}
+          <div className="mb-4">
+            <span className="text-sm font-medium text-gray-700 block mb-2">
+              Auto-discover Competitors{' '}
+              <span className="text-gray-400 font-normal">(paste any channel to find similar ones)</span>
+            </span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={seedChannel}
+                onChange={e => setSeedChannel(e.target.value)}
+                placeholder="@seedchannel"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                onClick={discoverChannels}
+                disabled={isDiscovering || !ytKey || !anthropicKey || !seedChannel.trim()}
+                className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2"
+              >
+                {isDiscovering ? (
+                  <>
+                    <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Discovering...
+                  </>
+                ) : 'Auto-discover'}
+              </button>
+            </div>
+            {discoverError && (
+              <p className="text-xs text-red-600 mt-1">{discoverError}</p>
+            )}
           </div>
 
           <div className="mb-5">

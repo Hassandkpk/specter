@@ -5,6 +5,40 @@ function extractText(message: Anthropic.Message): string {
   return block.type === 'text' ? block.text.trim() : '';
 }
 
+export async function generateNicheQueries(
+  apiKey: string,
+  channelName: string,
+  description: string,
+  keywords: string[],
+  videoTitles: string[]
+): Promise<string[]> {
+  const client = new Anthropic({ apiKey });
+  const msg = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 300,
+    messages: [{
+      role: 'user',
+      content: `You are a YouTube niche analyst. Based on the channel info below, generate 5 specific YouTube search queries to find similar niche channels (not huge generalist channels).
+
+Channel: ${channelName}
+Description: ${description.slice(0, 400)}
+Keywords: ${keywords.slice(0, 10).join(', ')}
+Recent titles:
+${videoTitles.slice(0, 12).map(t => `- ${t}`).join('\n')}
+
+Output ONLY a JSON array of 5 search query strings. No other text.`,
+    }],
+  });
+  const text = extractText(msg);
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+  } catch {
+    const matches = text.match(/"([^"]+)"/g);
+    return matches ? matches.map(m => m.replace(/"/g, '')).slice(0, 5) : [];
+  }
+}
+
 export async function generateViralRepeat(apiKey: string, originalTitle: string, niche: string): Promise<string> {
   const client = new Anthropic({ apiKey });
   const msg = await client.messages.create({

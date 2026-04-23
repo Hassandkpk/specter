@@ -83,6 +83,76 @@ async function getRecentVideos(yt: youtube_v3.Youtube, channelId: string, max = 
   } catch { return []; }
 }
 
+// ── Discovery helpers ─────────────────────────────────────────────────────────
+
+export async function getChannelFingerprint(apiKey: string, handle: string): Promise<{
+  channelId: string;
+  channelName: string;
+  description: string;
+  keywords: string[];
+  videoTitles: string[];
+} | null> {
+  const yt = getClient(apiKey);
+  const channelId = await resolveHandle(yt, handle);
+  if (!channelId) return null;
+
+  const [chanRes, recentVideos] = await Promise.all([
+    yt.channels.list({ part: ['snippet', 'brandingSettings'], id: [channelId] }),
+    getRecentVideos(yt, channelId, 20),
+  ]);
+
+  const chan = chanRes.data.items?.[0];
+  if (!chan) return null;
+
+  return {
+    channelId,
+    channelName: chan.snippet?.title || '',
+    description: chan.snippet?.description || '',
+    keywords: (chan.brandingSettings?.channel?.keywords || '').split(/[\s,]+/).filter(Boolean),
+    videoTitles: recentVideos.map(v => v.snippet?.title || '').filter(Boolean),
+  };
+}
+
+export async function searchSimilarChannels(
+  apiKey: string,
+  queries: string[],
+  excludeId: string
+): Promise<Competitor[]> {
+  const yt = getClient(apiKey);
+
+  const discoveredIds = new Set<string>();
+  for (const query of queries) {
+    try {
+      const res = await yt.search.list({ q: query, part: ['snippet'], type: ['channel'], maxResults: 8 });
+      for (const item of res.data.items || []) {
+        const cid = item.snippet?.channelId;
+        if (cid && cid !== excludeId) discoveredIds.add(cid);
+      }
+    } catch {}
+  }
+
+  if (!discoveredIds.size) return [];
+
+  const statsRes = await yt.channels.list({
+    part: ['snippet', 'statistics'],
+    id: [...discoveredIds].slice(0, 50),
+  });
+
+  return (statsRes.data.items || [])
+    .filter(item => parseInt(item.statistics?.subscriberCount || '0') < 10_000_000)
+    .sort((a, b) =>
+      parseInt(b.statistics?.subscriberCount || '0') -
+      parseInt(a.statistics?.subscriberCount || '0')
+    )
+    .slice(0, 5)
+    .map(item => ({
+      name: item.snippet?.title || '',
+      handle: item.snippet?.customUrl
+        ? (item.snippet.customUrl.startsWith('@') ? item.snippet.customUrl : `@${item.snippet.customUrl}`)
+        : `@${item.id}`,
+    }));
+}
+
 // ── Public functions ──────────────────────────────────────────────────────────
 
 export async function scanKeyword(apiKey: string, keyword: string, maxResults = 25): Promise<VideoResult[]> {
