@@ -27,9 +27,11 @@ function calcVelocity(video: youtube_v3.Schema$Video) {
 }
 
 function filterLong(videos: youtube_v3.Schema$Video[], minSec = 70) {
-  return videos.filter(
-    v => parseDurationSeconds(v.contentDetails?.duration || 'PT0S') > minSec
-  );
+  return videos.filter(v => {
+    if (parseDurationSeconds(v.contentDetails?.duration || 'PT0S') <= minSec) return false;
+    if (/#shorts/i.test(v.snippet?.title || '')) return false;
+    return true;
+  });
 }
 
 async function getSubCounts(yt: youtube_v3.Youtube, ids: string[]): Promise<Record<string, number>> {
