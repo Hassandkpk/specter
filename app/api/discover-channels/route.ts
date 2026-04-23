@@ -6,7 +6,8 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { ytApiKey, anthropicKey, seedHandle } = await req.json();
+    const { anthropicKey, seedHandle } = await req.json();
+    const ytApiKey = process.env.YOUTUBE_API_KEY!;
 
     const fingerprint = await getChannelFingerprint(ytApiKey, seedHandle);
     if (!fingerprint) {

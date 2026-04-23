@@ -22,22 +22,15 @@ type Step = 'idle' | 'scanning' | 'own-channel' | 'generating' | 'done';
 
 export default function Home() {
   // form
-  const [ytKey, setYtKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
 
   useEffect(() => {
-    setYtKey(localStorage.getItem('ytKey') || '');
     setAnthropicKey(localStorage.getItem('anthropicKey') || '');
     const saved = localStorage.getItem('competitors');
     if (saved) setCompetitors(JSON.parse(saved));
     setNiche(localStorage.getItem('niche') || '');
     setOwnChannel(localStorage.getItem('ownChannel') || '');
   }, []);
-
-  const saveYtKey = (val: string) => {
-    setYtKey(val);
-    localStorage.setItem('ytKey', val);
-  };
 
   const saveAnthropicKey = (val: string) => {
     setAnthropicKey(val);
@@ -65,11 +58,11 @@ export default function Home() {
   const [minimalTwists, setMinimalTwists] = useState<GeneratedResult[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const isReady = ytKey && anthropicKey && niche && competitors.some(c => c.trim());
+  const isReady = anthropicKey && niche && competitors.some(c => c.trim());
   const isRunning = step !== 'idle' && step !== 'done';
 
   const discoverChannels = async () => {
-    if (!ytKey || !anthropicKey || !seedChannel.trim()) return;
+    if (!anthropicKey || !seedChannel.trim()) return;
     setDiscoverError('');
     setDiscoveredChannels([]);
     setIsDiscovering(true);
@@ -77,7 +70,7 @@ export default function Home() {
       const res = await fetch('/api/discover-channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ytApiKey: ytKey, anthropicKey, seedHandle: seedChannel.trim() }),
+        body: JSON.stringify({ anthropicKey, seedHandle: seedChannel.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -122,7 +115,7 @@ export default function Home() {
       const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ytApiKey: ytKey, niche, competitors: validCompetitors }),
+        body: JSON.stringify({ niche, competitors: validCompetitors }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -142,7 +135,7 @@ export default function Home() {
         const res = await fetch('/api/own-channel', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ytApiKey: ytKey, ownChannel: ownChannel.trim() }),
+          body: JSON.stringify({ ownChannel: ownChannel.trim() }),
         });
         const data = await res.json();
         if (res.ok) {
@@ -216,17 +209,7 @@ export default function Home() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-5">Setup</h2>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">YouTube API Key</span>
-              <input
-                type="password"
-                value={ytKey}
-                onChange={e => saveYtKey(e.target.value)}
-                placeholder="AIza..."
-                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </label>
+          <div className="mb-4">
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Anthropic API Key</span>
               <input
@@ -323,7 +306,7 @@ export default function Home() {
                   />
                   <button
                     onClick={discoverChannels}
-                    disabled={isDiscovering || !ytKey || !anthropicKey || !seedChannel.trim()}
+                    disabled={isDiscovering || !anthropicKey || !seedChannel.trim()}
                     className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2"
                   >
                     {isDiscovering ? (

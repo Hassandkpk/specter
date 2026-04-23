@@ -3,8 +3,8 @@ import { getOwnChannelTopVideos } from '@/lib/youtube';
 
 export async function POST(req: NextRequest) {
   try {
-    const { ytApiKey, ownChannel } = await req.json();
-    const videos = await getOwnChannelTopVideos(ytApiKey, ownChannel, 7);
+    const { ownChannel } = await req.json();
+    const videos = await getOwnChannelTopVideos(process.env.YOUTUBE_API_KEY!, ownChannel, 7);
     return NextResponse.json({ videos });
   } catch (error) {
     return NextResponse.json(
