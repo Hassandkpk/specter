@@ -28,6 +28,10 @@ export default function Home() {
   useEffect(() => {
     setYtKey(localStorage.getItem('ytKey') || '');
     setAnthropicKey(localStorage.getItem('anthropicKey') || '');
+    const saved = localStorage.getItem('competitors');
+    if (saved) setCompetitors(JSON.parse(saved));
+    setNiche(localStorage.getItem('niche') || '');
+    setOwnChannel(localStorage.getItem('ownChannel') || '');
   }, []);
 
   const saveYtKey = (val: string) => {
@@ -83,7 +87,9 @@ export default function Home() {
         return;
       }
       setDiscoveredChannels(channels);
-      setCompetitors([...channels.map(c => c.handle), '', '', '', '', ''].slice(0, 5));
+      const filled = [...channels.map(c => c.handle), '', '', '', '', ''].slice(0, 5);
+      setCompetitors(filled);
+      localStorage.setItem('competitors', JSON.stringify(filled));
     } catch (e) {
       setDiscoverError(e instanceof Error ? e.message : 'Discovery failed');
     } finally {
@@ -239,7 +245,7 @@ export default function Home() {
               <input
                 type="text"
                 value={niche}
-                onChange={e => setNiche(e.target.value)}
+                onChange={e => { setNiche(e.target.value); localStorage.setItem('niche', e.target.value); }}
                 placeholder="e.g. fitness, personal finance, cooking"
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -252,7 +258,7 @@ export default function Home() {
               <input
                 type="text"
                 value={ownChannel}
-                onChange={e => setOwnChannel(e.target.value)}
+                onChange={e => { setOwnChannel(e.target.value); localStorage.setItem('ownChannel', e.target.value); }}
                 placeholder="@yourchannel"
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -298,6 +304,7 @@ export default function Home() {
                       const updated = [...competitors];
                       updated[i] = e.target.value;
                       setCompetitors(updated);
+                      localStorage.setItem('competitors', JSON.stringify(updated));
                     }}
                     placeholder={`@competitor${i + 1}`}
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
