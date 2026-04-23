@@ -32,18 +32,6 @@ export default function AdminPage() {
         setLoading(false);
       }
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const u = session?.user ?? null;
-      setUser(u);
-      if (u?.email === ADMIN_EMAIL && session) {
-        fetchPayments(session.access_token);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
   }, []);
 
   const fetchPayments = async (token: string) => {
