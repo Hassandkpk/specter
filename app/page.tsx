@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { VideoResult, GeneratedResult, DiscoveredChannel } from '@/types';
 
 function getVideoId(link: string) {
@@ -24,6 +24,21 @@ export default function Home() {
   // form
   const [ytKey, setYtKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
+
+  useEffect(() => {
+    setYtKey(localStorage.getItem('ytKey') || '');
+    setAnthropicKey(localStorage.getItem('anthropicKey') || '');
+  }, []);
+
+  const saveYtKey = (val: string) => {
+    setYtKey(val);
+    localStorage.setItem('ytKey', val);
+  };
+
+  const saveAnthropicKey = (val: string) => {
+    setAnthropicKey(val);
+    localStorage.setItem('anthropicKey', val);
+  };
   const [niche, setNiche] = useState('');
   const [ownChannel, setOwnChannel] = useState('');
   const [competitors, setCompetitors] = useState(['', '', '', '', '']);
@@ -196,7 +211,7 @@ export default function Home() {
               <input
                 type="password"
                 value={ytKey}
-                onChange={e => setYtKey(e.target.value)}
+                onChange={e => saveYtKey(e.target.value)}
                 placeholder="AIza..."
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -206,7 +221,7 @@ export default function Home() {
               <input
                 type="password"
                 value={anthropicKey}
-                onChange={e => setAnthropicKey(e.target.value)}
+                onChange={e => saveAnthropicKey(e.target.value)}
                 placeholder="sk-ant-..."
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
