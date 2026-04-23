@@ -110,7 +110,12 @@ Rules:
   return extractText(msg);
 }
 
-export async function generateOutlierRemix(apiKey: string, outlierTitle: string, niche: string): Promise<string> {
+export async function generateOutlierRemix(
+  apiKey: string,
+  outlierTitle: string,
+  niche: string,
+  allOutlierTitles: string[]
+): Promise<string> {
   const client = new Anthropic({ apiKey });
   const msg = await client.messages.create({
     model: 'claude-opus-4-6',
@@ -119,16 +124,20 @@ export async function generateOutlierRemix(apiKey: string, outlierTitle: string,
       role: 'user',
       content: `You are a YouTube title strategist for a ${niche} channel.
 
-A competitor's video is going viral with this title:
+Here are the trending titles in this niche right now — study their FORMAT and FRAMEWORK patterns:
+${allOutlierTitles.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+
+The specific video to remix:
 "${outlierTitle}"
 
-Your task: Generate a BRAND NEW YouTube title inspired by the same emotional angle and viral hook, but with a completely different storyline or framing. Keep the same emotional energy — if the original is shocking or controversial, yours should be too. Do NOT copy or rephrase — create something entirely new that captures the same energy.
+Your task: Create a brand new title with a COMPLETELY DIFFERENT topic and angle, but written in one of the SAME FORMAT PATTERNS trending in this niche (e.g. "I did X for Y days", "Why I quit X", numbered lists, questions, shocking statements — whatever patterns you see above).
 
 Rules:
 - Output ONLY the new title, nothing else
-- No explanations, no preamble, no quotes around the title
-- Make it dramatic or emotionally charged
-- It must feel original, not like a direct copy of the competitor's topic`,
+- Must use a proven format pattern from the trending titles above
+- Completely different topic from the original video
+- Must feel native to this niche — not out of place
+- No explanations, no preamble, no quotes`,
     }],
   });
   return extractText(msg);

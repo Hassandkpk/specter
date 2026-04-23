@@ -22,7 +22,12 @@ export async function POST(req: NextRequest) {
       Promise.all(
         (outliers as VideoResult[]).slice(0, numRemixes).map(async video => ({
           originalTitle: video.title,
-          generatedTitle: await generateOutlierRemix(anthropicKey, video.title, niche),
+          generatedTitle: await generateOutlierRemix(
+            anthropicKey,
+            video.title,
+            niche,
+            (outliers as VideoResult[]).map(v => v.title)
+          ),
           link: video.link,
           views: video.views,
           velocity: video.velocity,
