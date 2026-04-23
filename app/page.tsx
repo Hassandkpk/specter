@@ -56,7 +56,7 @@ export default function Home() {
       const res = await fetch('/api/discover-channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ytApiKey: ytKey, anthropicKey, seedHandle: seedChannel.trim() }),
+        body: JSON.stringify({ ytApiKey: ytKey, seedHandle: seedChannel.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -251,7 +251,7 @@ export default function Home() {
               />
               <button
                 onClick={discoverChannels}
-                disabled={isDiscovering || !ytKey || !anthropicKey || !seedChannel.trim()}
+                disabled={isDiscovering || !ytKey || !seedChannel.trim()}
                 className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2"
               >
                 {isDiscovering ? (

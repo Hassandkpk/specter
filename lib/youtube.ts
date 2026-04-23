@@ -130,35 +130,42 @@ export async function getChannelFingerprint(apiKey: string, handle: string): Pro
 
 export async function searchSimilarChannels(
   apiKey: string,
-  queries: string[],
+  videoTitles: string[],
   excludeId: string
 ): Promise<DiscoveredChannel[]> {
   const yt = getClient(apiKey);
 
-  const discoveredIds = new Set<string>();
-  for (const query of queries) {
+  // Search for videos using the seed channel's own titles as queries.
+  // Channels that appear across multiple searches are niche peers.
+  const frequency = new Map<string, number>();
+  for (const title of videoTitles.slice(0, 7)) {
     try {
-      const res = await yt.search.list({ q: query, part: ['snippet'], type: ['channel'], maxResults: 8 });
+      const res = await yt.search.list({
+        q: title, part: ['snippet'], type: ['video'], maxResults: 10, order: 'relevance',
+      });
       for (const item of res.data.items || []) {
         const cid = item.snippet?.channelId;
-        if (cid && cid !== excludeId) discoveredIds.add(cid);
+        if (cid && cid !== excludeId) frequency.set(cid, (frequency.get(cid) || 0) + 1);
       }
     } catch {}
   }
 
-  if (!discoveredIds.size) return [];
+  if (!frequency.size) return [];
+
+  // Take the most frequently appearing channel IDs first
+  const ranked = [...frequency.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => id)
+    .slice(0, 30);
 
   const statsRes = await yt.channels.list({
     part: ['snippet', 'statistics'],
-    id: [...discoveredIds].slice(0, 50),
+    id: ranked,
   });
 
   return (statsRes.data.items || [])
     .filter(item => parseInt(item.statistics?.subscriberCount || '0') < 10_000_000)
-    .sort((a, b) =>
-      parseInt(b.statistics?.subscriberCount || '0') -
-      parseInt(a.statistics?.subscriberCount || '0')
-    )
+    .sort((a, b) => (frequency.get(b.id!) || 0) - (frequency.get(a.id!) || 0))
     .slice(0, 5)
     .map(item => ({
       name: item.snippet?.title || '',
