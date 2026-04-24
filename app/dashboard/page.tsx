@@ -46,6 +46,7 @@ export default function Dashboard() {
 
   const [niche, setNiche] = useState('');
   const [ownChannel, setOwnChannel] = useState('');
+  const [competitorCount, setCompetitorCount] = useState(5);
   const [competitors, setCompetitors] = useState(['', '', '', '', '']);
   const [numRemixes, setNumRemixes] = useState(10);
 
@@ -346,7 +347,30 @@ export default function Dashboard() {
           {/* Competitor mode toggle */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-navy">Competitor Channels</span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-navy">Competitor Channels</span>
+                <div className="flex border border-[#c8d9ef] rounded-lg overflow-hidden">
+                  {[5, 10, 15, 20].map((n, i) => (
+                    <button
+                      key={n}
+                      onClick={() => {
+                        setCompetitorCount(n);
+                        setCompetitors(prev => {
+                          const next = [...prev];
+                          while (next.length < n) next.push('');
+                          return next.slice(0, n);
+                        });
+                      }}
+                      className={`px-2.5 py-1 text-xs font-semibold transition-colors ${i > 0 ? 'border-l border-[#c8d9ef]' : ''}`}
+                      style={competitorCount === n
+                        ? { backgroundColor: '#0f172a', color: '#ffffff' }
+                        : { backgroundColor: '#ffffff', color: '#94a3b8' }}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="flex border border-[#c8d9ef] rounded-lg overflow-hidden">
                 {(['manual', 'auto'] as const).map((mode, i) => (
                   <button
