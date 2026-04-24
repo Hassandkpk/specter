@@ -135,7 +135,7 @@ export default function Dashboard() {
   const thisMonth = new Date().toISOString().slice(0, 7);
   const dailyUsed = profile ? (profile.last_run_date === today ? profile.daily_runs : 0) : 0;
   const monthlyUsed = profile ? (profile.last_run_month === thisMonth ? profile.monthly_runs : 0) : 0;
-  const DAILY_LIMIT = profile?.plan === 'paid' ? 3 : 1;
+  const DAILY_LIMIT = 3;
   const dailyRemaining = Math.max(0, DAILY_LIMIT - dailyUsed);
   const monthlyRemaining = profile?.plan === 'paid' ? Math.max(0, 90 - monthlyUsed) : null;
 
