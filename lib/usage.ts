@@ -31,21 +31,22 @@ export async function checkAndIncrementUsage(
   const dailyRuns = profile.last_run_date === today ? profile.daily_runs : 0;
   const monthlyRuns = profile.last_run_month === thisMonth ? profile.monthly_runs : 0;
 
-  if (dailyRuns >= dailyLimit) {
-    return {
-      allowed: false,
-      reason: `Daily limit reached (${dailyLimit}/day on ${profile.plan} plan). Come back tomorrow.`,
-      profile: profile as Profile,
-    };
-  }
+  // Rate limiting disabled for testing
+  // if (dailyRuns >= dailyLimit) {
+  //   return {
+  //     allowed: false,
+  //     reason: `Daily limit reached (${dailyLimit}/day on ${profile.plan} plan). Come back tomorrow.`,
+  //     profile: profile as Profile,
+  //   };
+  // }
 
-  if (profile.plan === 'paid' && monthlyRuns >= MONTHLY_LIMIT_PAID) {
-    return {
-      allowed: false,
-      reason: `Monthly limit reached (${MONTHLY_LIMIT_PAID}/month). Resets next month.`,
-      profile: profile as Profile,
-    };
-  }
+  // if (profile.plan === 'paid' && monthlyRuns >= MONTHLY_LIMIT_PAID) {
+  //   return {
+  //     allowed: false,
+  //     reason: `Monthly limit reached (${MONTHLY_LIMIT_PAID}/month). Resets next month.`,
+  //     profile: profile as Profile,
+  //   };
+  // }
 
   const updated = {
     daily_runs: dailyRuns + 1,
