@@ -48,6 +48,8 @@ export default function Dashboard() {
   const [ownChannel, setOwnChannel] = useState('');
   const [competitorCount, setCompetitorCount] = useState(5);
   const [competitors, setCompetitors] = useState(['', '', '', '', '']);
+  const [nichePresets, setNichePresets] = useState<{ id: string; name: string; competitors: string[]; competitorCount: number }[]>([]);
+  const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
   const [numRemixes, setNumRemixes] = useState(10);
 
   const [competitorMode, setCompetitorMode] = useState<'auto' | 'manual'>('manual');
@@ -88,6 +90,8 @@ export default function Dashboard() {
     if (saved) setCompetitors(JSON.parse(saved));
     setNiche(localStorage.getItem('niche') || '');
     setOwnChannel(localStorage.getItem('ownChannel') || '');
+    const savedPresets = localStorage.getItem('nichePresets');
+    if (savedPresets) setNichePresets(JSON.parse(savedPresets));
   }, []);
 
   const fetchProfile = async (userId: string) => {
@@ -328,6 +332,71 @@ export default function Dashboard() {
                 placeholder="e.g. fitness, personal finance, cooking"
                 className={`mt-1 ${inputCls}`}
               />
+              {/* Niche presets bar */}
+              <div className="flex gap-2 mt-2">
+                <div className="relative flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setPresetDropdownOpen(o => !o)}
+                    className="w-full flex items-center justify-between border border-[#c8d9ef] rounded-lg px-3 py-1.5 text-xs bg-white text-navy hover:border-navy transition-colors"
+                  >
+                    <span className="text-slate-muted">{nichePresets.length === 0 ? 'No saved niches yet' : 'Switch niche...'}</span>
+                    <span className="text-slate-muted ml-2">▾</span>
+                  </button>
+                  {presetDropdownOpen && nichePresets.length > 0 && (
+                    <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-[#c8d9ef] rounded-lg shadow-md overflow-hidden">
+                      {nichePresets.map(preset => (
+                        <div key={preset.id} className="flex items-center justify-between px-3 py-2 hover:bg-[#f0f5fc] transition-colors">
+                          <button
+                            type="button"
+                            className="flex-1 text-left text-xs font-medium text-navy truncate"
+                            onClick={() => {
+                              setNiche(preset.name);
+                              setCompetitors(preset.competitors);
+                              setCompetitorCount(preset.competitorCount);
+                              localStorage.setItem('niche', preset.name);
+                              localStorage.setItem('competitors', JSON.stringify(preset.competitors));
+                              setPresetDropdownOpen(false);
+                            }}
+                          >
+                            {preset.name}
+                          </button>
+                          <button
+                            type="button"
+                            className="ml-2 text-slate-muted hover:text-red-500 text-xs font-bold flex-shrink-0 transition-colors"
+                            onClick={() => {
+                              const updated = nichePresets.filter(p => p.id !== preset.id);
+                              setNichePresets(updated);
+                              localStorage.setItem('nichePresets', JSON.stringify(updated));
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={!niche.trim() || nichePresets.length >= 5}
+                  onClick={() => {
+                    const updated = [...nichePresets, { id: crypto.randomUUID(), name: niche.trim(), competitors, competitorCount }];
+                    setNichePresets(updated);
+                    localStorage.setItem('nichePresets', JSON.stringify(updated));
+                    setPresetDropdownOpen(false);
+                  }}
+                  className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
+                  style={{
+                    backgroundColor: !niche.trim() || nichePresets.length >= 5 ? '#f1f5f9' : '#0f172a',
+                    color: !niche.trim() || nichePresets.length >= 5 ? '#94a3b8' : '#ffffff',
+                    borderColor: !niche.trim() || nichePresets.length >= 5 ? '#c8d9ef' : '#0f172a',
+                    cursor: !niche.trim() || nichePresets.length >= 5 ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Save{nichePresets.length > 0 ? ` (${nichePresets.length}/5)` : ''}
+                </button>
+              </div>
             </label>
             <label className="block">
               <span className="text-sm font-medium text-navy">
