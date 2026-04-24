@@ -27,6 +27,8 @@ export async function checkAndIncrementUsage(
 
   if (error || !profile) return { allowed: false, reason: 'Profile not found' };
 
+  if (profile.banned) return { allowed: false, reason: 'Your account has been suspended.', profile: profile as Profile };
+
   const dailyLimit = profile.plan === 'paid' ? DAILY_LIMIT_PAID : DAILY_LIMIT_FREE;
   const dailyRuns = profile.last_run_date === today ? profile.daily_runs : 0;
   const monthlyRuns = profile.last_run_month === thisMonth ? profile.monthly_runs : 0;

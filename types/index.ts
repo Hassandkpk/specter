@@ -42,4 +42,5 @@ export interface Profile {
   last_run_date: string | null;
   last_run_month: string | null;
   gumroad_license_key: string | null;
+  banned?: boolean;
 }

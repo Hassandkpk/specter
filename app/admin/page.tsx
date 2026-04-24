@@ -16,11 +16,21 @@ interface Payment {
   reviewed_at: string | null;
 }
 
+interface UserRecord {
+  id: string;
+  email: string;
+  plan: 'free' | 'paid';
+  banned: boolean;
+  created_at: string;
+}
+
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [banLoading, setBanLoading] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -28,6 +38,7 @@ export default function AdminPage() {
       setUser(u);
       if (u?.email === ADMIN_EMAIL && session) {
         fetchPayments(session.access_token);
+        fetchUsers(session.access_token);
       } else {
         setLoading(false);
       }
@@ -42,6 +53,28 @@ export default function AdminPage() {
     const data = await res.json();
     setPayments(data.payments ?? []);
     setLoading(false);
+  };
+
+  const fetchUsers = async (token: string) => {
+    const res = await fetch('/api/admin/users', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    setUsers(data.users ?? []);
+  };
+
+  const handleBan = async (userId: string, banned: boolean) => {
+    setBanLoading(userId);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch('/api/admin/ban', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ userId, banned }),
+    });
+    if (res.ok) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, banned } : u));
+    }
+    setBanLoading(null);
   };
 
   const handleAction = async (paymentId: string, action: 'approve' | 'reject') => {
@@ -168,6 +201,38 @@ export default function AdminPage() {
                 >
                   {p.status === 'approved' ? 'Approved' : 'Rejected'}
                 </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Users section */}
+        {users.length > 0 && (
+          <div className="space-y-3 mt-10">
+            <div className="mb-4">
+              <h2 className="font-heading text-[1.25rem] font-[700] text-navy">Users</h2>
+              <p className="text-sm text-slate-muted mt-0.5">Ban or unban accounts. Banned users are blocked from running scans.</p>
+            </div>
+            {users.map(u => (
+              <div key={u.id} className="bg-white rounded-xl border border-[#c8d9ef] p-4 flex items-center gap-4"
+                style={u.banned ? { opacity: 0.6 } : {}}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-navy">{u.email}</p>
+                  <p className="text-xs text-slate-muted mt-0.5">
+                    <span className="font-medium">{u.plan}</span> &middot; joined {new Date(u.created_at).toLocaleDateString()}
+                    {u.banned && <span className="ml-2 text-red-500 font-semibold">BANNED</span>}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleBan(u.id, !u.banned)}
+                  disabled={banLoading === u.id}
+                  className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                  style={u.banned
+                    ? { backgroundColor: '#0f172a', color: '#ffffff', cursor: banLoading === u.id ? 'not-allowed' : 'pointer' }
+                    : { backgroundColor: '#fee2e2', color: '#dc2626', cursor: banLoading === u.id ? 'not-allowed' : 'pointer' }}
+                >
+                  {banLoading === u.id ? '...' : u.banned ? 'Unban' : 'Ban'}
+                </button>
               </div>
             ))}
           </div>
