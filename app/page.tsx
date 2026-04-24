@@ -290,6 +290,90 @@ export default function Home() {
     done: '',
   };
 
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        {/* Ambient blobs */}
+        <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
+
+        {/* Brand */}
+        <div className="text-center mb-10 relative z-10">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 shadow-xl shadow-violet-500/30 mb-5 text-3xl">
+            🔥
+          </div>
+          <h1 className="text-4xl font-bold text-white tracking-tight">Viral Topic Finder</h1>
+          <p className="text-slate-400 mt-2.5 text-base max-w-xs mx-auto leading-relaxed">
+            Find trending videos. Generate content ideas. Grow your channel faster.
+          </p>
+        </div>
+
+        {/* Auth Card */}
+        <div className="w-full max-w-sm relative z-10">
+          <div className="bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-7 shadow-2xl">
+            {/* Tabs */}
+            <div className="flex gap-1 mb-6 bg-white/[0.04] rounded-xl p-1">
+              <button
+                onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                  authMode === 'login'
+                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                Sign in
+              </button>
+              <button
+                onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                  authMode === 'signup'
+                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                Sign up
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                type="email"
+                value={authEmail}
+                onChange={e => setAuthEmail(e.target.value)}
+                placeholder="Email address"
+                className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+              <input
+                type="password"
+                value={authPassword}
+                onChange={e => setAuthPassword(e.target.value)}
+                placeholder="Password"
+                onKeyDown={e => e.key === 'Enter' && (authMode === 'login' ? signIn() : signUp())}
+                className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+              {authError && (
+                <p className={`text-xs px-1 ${authError.includes('Check your email') ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {authError}
+                </p>
+              )}
+              <button
+                onClick={authMode === 'login' ? signIn : signUp}
+                disabled={authLoading || !authEmail || !authPassword}
+                className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-lg shadow-violet-500/20 mt-1"
+              >
+                {authLoading ? 'Loading...' : authMode === 'login' ? 'Sign in' : 'Create account'}
+              </button>
+            </div>
+          </div>
+
+          <p className="text-center text-xs text-slate-600 mt-5">
+            By signing up you agree to our terms of service.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -301,96 +385,45 @@ export default function Home() {
               Find trending videos in any niche and generate fresh content ideas with AI.
             </p>
           </div>
-          {user && (
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm text-gray-600 truncate max-w-[180px]">{user.email}</p>
-                <div className="flex items-center gap-2 justify-end mt-0.5">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    profile?.plan === 'paid'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    {profile?.plan === 'paid' ? 'Pro' : 'Free'}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {dailyRemaining}/{DAILY_LIMIT} today
-                    {monthlyRemaining != null && ` · ${monthlyRemaining}/150 this month`}
-                  </span>
-                </div>
-              </div>
+          <div className="flex items-center gap-4">
+            {profile?.plan === 'free' && (
               <button
-                onClick={() => supabase.auth.signOut()}
-                className="text-xs text-gray-400 hover:text-gray-600 underline"
+                onClick={() => document.getElementById('upgrade-section')?.scrollIntoView({ behavior: 'smooth' })}
+                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all shadow shadow-violet-500/20"
               >
-                Sign out
+                Upgrade to Pro
               </button>
+            )}
+            <div className="text-right">
+              <p className="text-sm text-gray-600 truncate max-w-[180px]">{user.email}</p>
+              <div className="flex items-center gap-2 justify-end mt-0.5">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  profile?.plan === 'paid'
+                    ? 'bg-violet-100 text-violet-700'
+                    : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {profile?.plan === 'paid' ? 'Pro' : 'Free'}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {dailyRemaining}/{DAILY_LIMIT} today
+                  {monthlyRemaining != null && ` · ${monthlyRemaining}/150 this month`}
+                </span>
+              </div>
             </div>
-          )}
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="text-xs text-gray-400 hover:text-gray-600 underline"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
 
-        {/* Auth Card */}
-        {!user && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 max-w-md mx-auto">
-            <h2 className="text-base font-semibold text-gray-900 mb-4">
-              {authMode === 'login' ? 'Sign in to continue' : 'Create your account'}
-            </h2>
-            <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-0.5">
-              <button
-                onClick={() => { setAuthMode('login'); setAuthError(''); }}
-                className={`flex-1 py-1.5 text-sm font-semibold rounded-md transition-colors ${
-                  authMode === 'login' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
-                }`}
-              >
-                Login
-              </button>
-              <button
-                onClick={() => { setAuthMode('signup'); setAuthError(''); }}
-                className={`flex-1 py-1.5 text-sm font-semibold rounded-md transition-colors ${
-                  authMode === 'signup' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
-                }`}
-              >
-                Sign up
-              </button>
-            </div>
-            <div className="space-y-3">
-              <input
-                type="email"
-                value={authEmail}
-                onChange={e => setAuthEmail(e.target.value)}
-                placeholder="Email"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="password"
-                value={authPassword}
-                onChange={e => setAuthPassword(e.target.value)}
-                placeholder="Password"
-                onKeyDown={e => e.key === 'Enter' && (authMode === 'login' ? signIn() : signUp())}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {authError && (
-                <p className={`text-xs ${authError.includes('Check your email') ? 'text-green-600' : 'text-red-600'}`}>
-                  {authError}
-                </p>
-              )}
-              <button
-                onClick={authMode === 'login' ? signIn : signUp}
-                disabled={authLoading || !authEmail || !authPassword}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
-              >
-                {authLoading ? 'Loading...' : authMode === 'login' ? 'Sign in' : 'Create account'}
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Setup Card */}
-        {user && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-5">Setup</h2>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
@@ -566,7 +599,7 @@ export default function Home() {
 
             {/* EasyPaisa upgrade */}
             {profile?.plan === 'free' && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
+              <div id="upgrade-section" className="mt-4 pt-4 border-t border-gray-100">
                 {existingPayment?.status === 'pending' || paymentSubmitted ? (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <p className="text-sm font-semibold text-yellow-800">Payment under review</p>
@@ -614,7 +647,6 @@ export default function Home() {
               </div>
             )}
           </div>
-        )}
 
         {/* Outliers */}
         {outliers.length > 0 && (
