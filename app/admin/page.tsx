@@ -49,32 +49,29 @@ export default function AdminPage() {
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch('/api/admin/approve', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session?.access_token}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
       body: JSON.stringify({ paymentId, action }),
     });
     if (res.ok) {
       setPayments(prev =>
-        prev.map(p =>
-          p.id === paymentId
-            ? { ...p, status: action === 'approve' ? 'approved' : 'rejected' }
-            : p
-        )
+        prev.map(p => p.id === paymentId ? { ...p, status: action === 'approve' ? 'approved' : 'rejected' } : p)
       );
     }
     setActionLoading(null);
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-400">Loading...</div>;
+    return (
+      <div className="min-h-screen bg-sky-bg flex items-center justify-center text-slate-muted">
+        Loading...
+      </div>
+    );
   }
 
   if (!user || user.email !== ADMIN_EMAIL) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400">Access denied.</p>
+      <div className="min-h-screen bg-sky-bg flex items-center justify-center">
+        <p className="text-slate-muted">Access denied.</p>
       </div>
     );
   }
@@ -83,54 +80,63 @@ export default function AdminPage() {
   const reviewed = payments.filter(p => p.status !== 'pending');
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
+    <main className="min-h-screen bg-sky-bg p-8">
       <div className="max-w-3xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Payment Approvals</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="font-heading text-[1.75rem] font-[700] text-navy leading-tight">Payment Approvals</h1>
+          <p className="text-sm text-slate-muted mt-1">
             Verify each transaction ID in your EasyPaisa app, then approve or reject.
           </p>
         </div>
 
         {pending.length === 0 && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center text-gray-400 mb-6">
+          <div className="bg-white rounded-xl border border-[#c8d9ef] p-8 text-center text-slate-muted mb-6">
             No pending payments — you&apos;re all caught up.
           </div>
         )}
 
         {pending.length > 0 && (
           <div className="space-y-3 mb-8">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <p className="text-xs font-semibold text-slate-muted uppercase tracking-widest">
               Pending ({pending.length})
-            </h2>
+            </p>
             {pending.map(p => (
               <div
                 key={p.id}
-                className="bg-white rounded-xl border border-orange-200 shadow-sm p-4 flex items-center gap-4"
+                className="bg-white rounded-xl p-4 flex items-center gap-4"
+                style={{ border: '1px solid #0f172a' }}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">{p.user_email}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Transaction ID:{' '}
-                    <span className="font-mono font-medium text-gray-800">{p.transaction_id}</span>
+                  <p className="text-sm font-semibold text-navy">{p.user_email}</p>
+                  <p className="text-xs text-slate-muted mt-0.5">
+                    Transaction ID: <span className="font-mono font-medium text-slate-mid">{p.transaction_id}</span>
                   </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    PKR {p.amount_pkr.toLocaleString()} &middot;{' '}
-                    {new Date(p.created_at).toLocaleString()}
+                  <p className="text-xs text-slate-muted mt-0.5">
+                    PKR {p.amount_pkr.toLocaleString()} &middot; {new Date(p.created_at).toLocaleString()}
                   </p>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   <button
                     onClick={() => handleAction(p.id, 'approve')}
                     disabled={actionLoading !== null}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors"
+                    className="font-semibold px-4 py-2 rounded-lg text-sm transition-colors"
+                    style={{
+                      backgroundColor: actionLoading !== null ? '#e2e8f0' : '#0f172a',
+                      color: actionLoading !== null ? '#94a3b8' : '#ffffff',
+                      cursor: actionLoading !== null ? 'not-allowed' : 'pointer',
+                    }}
                   >
-                    {actionLoading === p.id + 'approve' ? '...' : '✓ Approve'}
+                    {actionLoading === p.id + 'approve' ? '...' : 'Approve'}
                   </button>
                   <button
                     onClick={() => handleAction(p.id, 'reject')}
                     disabled={actionLoading !== null}
-                    className="bg-red-50 hover:bg-red-100 disabled:bg-gray-100 disabled:cursor-not-allowed text-red-700 font-semibold px-4 py-2 rounded-lg text-sm transition-colors"
+                    className="font-semibold px-4 py-2 rounded-lg text-sm bg-white hover:bg-sky-bg transition-colors text-navy"
+                    style={{
+                      border: '1px solid #c8d9ef',
+                      cursor: actionLoading !== null ? 'not-allowed' : 'pointer',
+                      opacity: actionLoading !== null ? 0.5 : 1,
+                    }}
                   >
                     {actionLoading === p.id + 'reject' ? '...' : 'Reject'}
                   </button>
@@ -142,32 +148,25 @@ export default function AdminPage() {
 
         {reviewed.length > 0 && (
           <div className="space-y-3">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Reviewed
-            </h2>
+            <p className="text-xs font-semibold text-slate-muted uppercase tracking-widest">Reviewed</p>
             {reviewed.map(p => (
-              <div
-                key={p.id}
-                className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 opacity-60"
-              >
+              <div key={p.id} className="bg-white rounded-xl border border-[#c8d9ef] p-4 flex items-center gap-4 opacity-60">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">{p.user_email}</p>
-                  <p className="text-xs text-gray-500">
-                    Transaction ID: <span className="font-mono">{p.transaction_id}</span>
+                  <p className="text-sm font-semibold text-navy">{p.user_email}</p>
+                  <p className="text-xs text-slate-muted">
+                    Transaction ID: <span className="font-mono text-slate-mid">{p.transaction_id}</span>
                   </p>
-                  <p className="text-xs text-gray-400">
-                    PKR {p.amount_pkr.toLocaleString()} &middot;{' '}
-                    {new Date(p.created_at).toLocaleString()}
+                  <p className="text-xs text-slate-muted">
+                    PKR {p.amount_pkr.toLocaleString()} &middot; {new Date(p.created_at).toLocaleString()}
                   </p>
                 </div>
                 <span
-                  className={`text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 ${
-                    p.status === 'approved'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}
+                  className="text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0"
+                  style={p.status === 'approved'
+                    ? { backgroundColor: '#0f172a', color: '#ffffff' }
+                    : { backgroundColor: '#e2e8f0', color: '#64748b', border: '1px solid #c8d9ef' }}
                 >
-                  {p.status === 'approved' ? '✓ Approved' : 'Rejected'}
+                  {p.status === 'approved' ? 'Approved' : 'Rejected'}
                 </span>
               </div>
             ))}

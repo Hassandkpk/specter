@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Space_Grotesk, Cormorant_Garamond } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-display', weight: ['400', '500', '600', '700'] });
+const cormorant = Cormorant_Garamond({ subsets: ['latin'], variable: '--font-editorial', weight: ['300', '400'] });
 
 export const metadata: Metadata = {
   title: 'Viral Topic Finder',
@@ -12,7 +14,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable} ${cormorant.variable} font-sans bg-cream text-z-black`}>
+        {children}
+      </body>
     </html>
   );
 }
