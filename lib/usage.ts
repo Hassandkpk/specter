@@ -5,6 +5,71 @@ export const DAILY_LIMIT_FREE = 3;
 export const DAILY_LIMIT_PAID = 5;
 export const MONTHLY_LIMIT_PAID = 150;
 
+export const FREE_CREDITS = 500;
+export const PAID_CREDITS_MONTHLY = 10_000;
+export const CREDIT_PER_REMIX = 10;
+export const CREDIT_PER_OWN_VIDEO = 5;
+
+export function calcGenerateCost(numRemixes: number, numOwnVideos: number): number {
+  return numRemixes * CREDIT_PER_REMIX + numOwnVideos * CREDIT_PER_OWN_VIDEO;
+}
+
+export async function initializeCredits(userId: string, ip: string): Promise<void> {
+  const supabase = getServiceClient();
+  const thisMonth = new Date().toISOString().slice(0, 7);
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('plan, credits, signup_ip, credits_reset_month, banned')
+    .eq('id', userId)
+    .single();
+
+  if (!profile || profile.banned) return;
+
+  if (profile.plan === 'paid') {
+    if (profile.credits_reset_month !== thisMonth) {
+      await supabase
+        .from('profiles')
+        .update({ credits: PAID_CREDITS_MONTHLY, credits_reset_month: thisMonth })
+        .eq('id', userId);
+    }
+    return;
+  }
+
+  // Free users: only initialize once (signup_ip === null means never done)
+  if (profile.signup_ip !== null) return;
+
+  const { error: claimError } = await supabase
+    .from('ip_free_claims')
+    .insert({ ip, user_id: userId });
+
+  // 23505 = unique_violation — another account from this IP already claimed
+  const ipAlreadyClaimed = claimError?.code === '23505';
+  await supabase
+    .from('profiles')
+    .update({ credits: ipAlreadyClaimed ? 0 : FREE_CREDITS, signup_ip: ip })
+    .eq('id', userId);
+}
+
+export async function deductCredits(
+  userId: string,
+  cost: number
+): Promise<{ allowed: boolean; remaining: number }> {
+  const supabase = getServiceClient();
+  const { data } = await supabase.rpc('deduct_credits', { p_user_id: userId, p_cost: cost });
+
+  if (data === null || data === undefined) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('credits')
+      .eq('id', userId)
+      .single();
+    return { allowed: false, remaining: profile?.credits ?? 0 };
+  }
+
+  return { allowed: true, remaining: data as number };
+}
+
 export async function getUserFromToken(token: string) {
   const supabase = getServiceClient();
   const { data: { user }, error } = await supabase.auth.getUser(token);

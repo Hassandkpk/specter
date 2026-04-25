@@ -36,9 +36,10 @@ export async function POST(req: NextRequest) {
       .eq('id', paymentId);
 
     if (action === 'approve') {
+      const thisMonth = new Date().toISOString().slice(0, 7);
       await supabase
         .from('profiles')
-        .update({ plan: 'paid' })
+        .update({ plan: 'paid', credits: 10_000, credits_reset_month: thisMonth })
         .eq('id', payment.user_id);
     }
 

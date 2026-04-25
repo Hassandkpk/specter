@@ -43,4 +43,7 @@ export interface Profile {
   last_run_month: string | null;
   gumroad_license_key: string | null;
   banned?: boolean;
+  credits: number;
+  signup_ip: string | null;
+  credits_reset_month: string | null;
 }

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const { data: authData } = await supabase.auth.admin.listUsers({ perPage: 200 });
     const authUsers = authData?.users ?? [];
 
-    const { data: profiles } = await supabase.from('profiles').select('id, plan, banned');
+    const { data: profiles } = await supabase.from('profiles').select('id, plan, banned, credits, signup_ip');
     const profileMap = new Map((profiles ?? []).map(p => [p.id, p]));
 
     const users = authUsers.map(u => ({
@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
       email: u.email ?? '',
       plan: profileMap.get(u.id)?.plan ?? 'free',
       banned: profileMap.get(u.id)?.banned ?? false,
+      credits: profileMap.get(u.id)?.credits ?? 0,
+      signup_ip: profileMap.get(u.id)?.signup_ip ?? null,
       created_at: u.created_at,
     }));
 

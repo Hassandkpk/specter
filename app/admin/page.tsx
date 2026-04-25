@@ -21,6 +21,8 @@ interface UserRecord {
   email: string;
   plan: 'free' | 'paid';
   banned: boolean;
+  credits: number;
+  signup_ip: string | null;
   created_at: string;
 }
 
@@ -31,6 +33,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [banLoading, setBanLoading] = useState<string | null>(null);
+  const [creditInputs, setCreditInputs] = useState<Record<string, string>>({});
+  const [creditLoading, setCreditLoading] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -61,6 +65,24 @@ export default function AdminPage() {
     });
     const data = await res.json();
     setUsers(data.users ?? []);
+  };
+
+  const handleSetCredits = async (userId: string) => {
+    const raw = creditInputs[userId];
+    const amount = parseInt(raw, 10);
+    if (isNaN(amount) || amount < 0) return;
+    setCreditLoading(userId);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch('/api/admin/set-credits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ userId, credits: amount }),
+    });
+    if (res.ok) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, credits: amount } : u));
+      setCreditInputs(prev => ({ ...prev, [userId]: '' }));
+    }
+    setCreditLoading(null);
   };
 
   const handleBan = async (userId: string, banned: boolean) => {
@@ -214,25 +236,53 @@ export default function AdminPage() {
               <p className="text-sm text-slate-muted mt-0.5">Ban or unban accounts. Banned users are blocked from running scans.</p>
             </div>
             {users.map(u => (
-              <div key={u.id} className="bg-white rounded-xl border border-[#c8d9ef] p-4 flex items-center gap-4"
+              <div key={u.id} className="bg-white rounded-xl border border-[#c8d9ef] p-4"
                 style={u.banned ? { opacity: 0.6 } : {}}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-navy">{u.email}</p>
-                  <p className="text-xs text-slate-muted mt-0.5">
-                    <span className="font-medium">{u.plan}</span> &middot; joined {new Date(u.created_at).toLocaleDateString()}
-                    {u.banned && <span className="ml-2 text-red-500 font-semibold">BANNED</span>}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-navy">{u.email}</p>
+                    <p className="text-xs text-slate-muted mt-0.5">
+                      <span className="font-medium">{u.plan}</span>
+                      {' · '}
+                      <span className="font-semibold text-navy">{u.credits.toLocaleString()} credits</span>
+                      {' · '}joined {new Date(u.created_at).toLocaleDateString()}
+                      {u.signup_ip && <span className="ml-2 font-mono text-slate-muted">IP: {u.signup_ip}</span>}
+                      {u.banned && <span className="ml-2 text-red-500 font-semibold">BANNED</span>}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleBan(u.id, !u.banned)}
+                    disabled={banLoading === u.id}
+                    className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                    style={u.banned
+                      ? { backgroundColor: '#0f172a', color: '#ffffff', cursor: banLoading === u.id ? 'not-allowed' : 'pointer' }
+                      : { backgroundColor: '#fee2e2', color: '#dc2626', cursor: banLoading === u.id ? 'not-allowed' : 'pointer' }}
+                  >
+                    {banLoading === u.id ? '...' : u.banned ? 'Unban' : 'Ban'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleBan(u.id, !u.banned)}
-                  disabled={banLoading === u.id}
-                  className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                  style={u.banned
-                    ? { backgroundColor: '#0f172a', color: '#ffffff', cursor: banLoading === u.id ? 'not-allowed' : 'pointer' }
-                    : { backgroundColor: '#fee2e2', color: '#dc2626', cursor: banLoading === u.id ? 'not-allowed' : 'pointer' }}
-                >
-                  {banLoading === u.id ? '...' : u.banned ? 'Unban' : 'Ban'}
-                </button>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="Set credits..."
+                    value={creditInputs[u.id] ?? ''}
+                    onChange={e => setCreditInputs(prev => ({ ...prev, [u.id]: e.target.value }))}
+                    className="w-36 border border-[#c8d9ef] rounded-lg px-2 py-1 text-xs bg-white text-navy placeholder-slate-muted focus:outline-none focus:border-navy"
+                  />
+                  <button
+                    onClick={() => handleSetCredits(u.id)}
+                    disabled={creditLoading === u.id || !creditInputs[u.id]}
+                    className="text-xs font-semibold px-3 py-1 rounded-lg transition-colors"
+                    style={{
+                      backgroundColor: creditLoading === u.id || !creditInputs[u.id] ? '#e2e8f0' : '#0f172a',
+                      color: creditLoading === u.id || !creditInputs[u.id] ? '#94a3b8' : '#ffffff',
+                      cursor: creditLoading === u.id || !creditInputs[u.id] ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {creditLoading === u.id ? '...' : 'Set'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -26,10 +26,13 @@ function calcVelocity(video: youtube_v3.Schema$Video) {
   };
 }
 
-function filterLong(videos: youtube_v3.Schema$Video[], minSec = 70) {
+function filterLong(videos: youtube_v3.Schema$Video[], minSec = 120) {
   return videos.filter(v => {
     if (parseDurationSeconds(v.contentDetails?.duration || 'PT0S') <= minSec) return false;
-    if (/#shorts/i.test(v.snippet?.title || '')) return false;
+    const title = v.snippet?.title || '';
+    const description = v.snippet?.description || '';
+    const tags = (v.snippet?.tags || []).join(' ');
+    if (/#shorts?/i.test(title + ' ' + description + ' ' + tags)) return false;
     return true;
   });
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateViralRepeat, generateOutlierRemix, generateMinimalTwist } from '@/lib/claude';
-import { getUserFromToken } from '@/lib/usage';
+import { getUserFromToken, initializeCredits, deductCredits, calcGenerateCost } from '@/lib/usage';
 import type { VideoResult } from '@/types';
 
 export const maxDuration = 60;
@@ -13,7 +13,20 @@ export async function POST(req: NextRequest) {
     const user = await getUserFromToken(token);
     if (!user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
 
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '0.0.0.0';
+    await initializeCredits(user.id, ip);
+
     const { niche, outliers, ownVideos, numRemixes } = await req.json();
+
+    const cost = calcGenerateCost(numRemixes, (ownVideos as VideoResult[]).length);
+    const { allowed, remaining } = await deductCredits(user.id, cost);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: `Not enough credits. This run costs ${cost} credits but you only have ${remaining}.` },
+        { status: 402 }
+      );
+    }
+
     const anthropicKey = process.env.ANTHROPIC_API_KEY!;
 
     const [viralRepeats, outlierRemixes, minimalTwists] = await Promise.all([
@@ -53,7 +66,7 @@ export async function POST(req: NextRequest) {
       ),
     ]);
 
-    return NextResponse.json({ viralRepeats, outlierRemixes, minimalTwists });
+    return NextResponse.json({ viralRepeats, outlierRemixes, minimalTwists, creditsRemaining: remaining });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Generation failed' },

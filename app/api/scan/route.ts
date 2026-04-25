@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scanKeyword, scanCompetitors } from '@/lib/youtube';
-import { getUserFromToken, checkAndIncrementUsage } from '@/lib/usage';
+import { getUserFromToken, initializeCredits } from '@/lib/usage';
+import { getServiceClient } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,8 +11,18 @@ export async function POST(req: NextRequest) {
     const user = await getUserFromToken(token);
     if (!user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
 
-    const { allowed, reason, profile } = await checkAndIncrementUsage(user.id);
-    if (!allowed) return NextResponse.json({ error: reason }, { status: 429 });
+    const supabase = getServiceClient();
+    const { data: profileCheck } = await supabase
+      .from('profiles')
+      .select('banned')
+      .eq('id', user.id)
+      .single();
+    if (profileCheck?.banned) {
+      return NextResponse.json({ error: 'Your account has been suspended.' }, { status: 403 });
+    }
+
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '0.0.0.0';
+    await initializeCredits(user.id, ip);
 
     const { niche, competitors } = await req.json();
     const ytApiKey = process.env.YOUTUBE_API_KEY!;
@@ -25,6 +36,8 @@ export async function POST(req: NextRequest) {
     const outliers = all
       .sort((a, b) => b.velocity - a.velocity)
       .slice(0, 10);
+
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 
     return NextResponse.json({ outliers, profile });
   } catch (error) {

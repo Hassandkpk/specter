@@ -24,13 +24,25 @@ function fmt(n: number) {
 type Step = 'idle' | 'scanning' | 'own-channel' | 'generating' | 'done';
 
 const inputCls =
-  'w-full bg-white border border-[#c8d9ef] rounded-lg px-3 py-2 text-sm text-navy placeholder-slate-muted focus:outline-none focus:border-navy transition-colors';
+  'w-full bg-white border border-[#bfdbfe] rounded-lg px-3 py-2 text-sm text-navy placeholder-slate-muted focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 transition-all';
 
 const copyBtnStyle = {
-  backgroundColor: '#f1f5f9',
-  color: '#0f172a',
-  border: '1px solid #c8d9ef',
+  backgroundColor: '#eff6ff',
+  color: '#1d4ed8',
+  border: '1px solid #bfdbfe',
 };
+
+const blueBtn = {
+  background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+  color: '#ffffff',
+  cursor: 'pointer',
+} as const;
+
+const blueBtnDisabled = {
+  backgroundColor: '#e2e8f0',
+  color: '#94a3b8',
+  cursor: 'not-allowed',
+} as const;
 
 export default function Dashboard() {
   const router = useRouter();
@@ -72,14 +84,14 @@ export default function Dashboard() {
       if (!session?.user) { router.replace('/login'); return; }
       setSession(session);
       setUser(session.user);
-      fetchProfile(session.user.id);
+      fetchProfile(session.user.id, session.access_token);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session?.user) { router.replace('/login'); return; }
       setSession(session);
       setUser(session.user);
-      fetchProfile(session.user.id);
+      fetchProfile(session.user.id, session.access_token);
     });
 
     return () => subscription.unsubscribe();
@@ -94,9 +106,18 @@ export default function Dashboard() {
     if (savedPresets) setNichePresets(JSON.parse(savedPresets));
   }, []);
 
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (data) setProfile(data as Profile);
+  const fetchProfile = async (userId: string, token: string) => {
+    try {
+      const res = await fetch('/api/init-credits', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.profile) setProfile(data.profile as Profile);
+    } catch {
+      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      if (data) setProfile(data as Profile);
+    }
 
     const { data: payment } = await supabase
       .from('pending_payments')
@@ -136,15 +157,9 @@ export default function Dashboard() {
     }
   };
 
-  const today = new Date().toISOString().slice(0, 10);
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  const dailyUsed = profile ? (profile.last_run_date === today ? profile.daily_runs : 0) : 0;
-  const monthlyUsed = profile ? (profile.last_run_month === thisMonth ? profile.monthly_runs : 0) : 0;
-  const DAILY_LIMIT = 3;
-  const dailyRemaining = Math.max(0, DAILY_LIMIT - dailyUsed);
-  const monthlyRemaining = profile?.plan === 'paid' ? Math.max(0, 90 - monthlyUsed) : null;
-
-  const isReady = !!user && !!niche && competitors.some(c => c.trim()) && dailyRemaining > 0;
+  const credits = profile?.credits ?? 0;
+  const remixCost = numRemixes * 10;
+  const isReady = !!user && !!niche && competitors.some(c => c.trim()) && credits >= remixCost;
   const isRunning = step !== 'idle' && step !== 'done';
 
   const authHeaders = () => ({
@@ -236,6 +251,9 @@ export default function Dashboard() {
       setViralRepeats(data.viralRepeats);
       setOutlierRemixes(data.outlierRemixes);
       setMinimalTwists(data.minimalTwists);
+      if (typeof data.creditsRemaining === 'number') {
+        setProfile(prev => prev ? { ...prev, credits: data.creditsRemaining } : prev);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Generation failed');
       setStep('idle');
@@ -248,10 +266,10 @@ export default function Dashboard() {
   const downloadCSV = () => {
     const rows = [
       ['Type', 'Original Title', 'Generated Title', 'Link', 'Views', 'Velocity'],
-      ...outliers.map(v => ['outlier', v.title, '', v.link, v.views, v.velocity]),
-      ...viralRepeats.map(r => ['viral_repeat', r.originalTitle, r.generatedTitle, r.link, r.views, '']),
-      ...outlierRemixes.map(r => ['outlier_remix', r.originalTitle, r.generatedTitle, r.link, r.views, r.velocity ?? '']),
-      ...minimalTwists.map(r => ['minimal_twist', r.originalTitle, r.generatedTitle, r.link, r.views, r.velocity ?? '']),
+      ...outliers.map(v => ['Trending Outlier', v.title, '', v.link, v.views, v.velocity]),
+      ...viralRepeats.map(r => ['New Topics Based on Previous Viral Topics', r.originalTitle, r.generatedTitle, r.link, r.views, '']),
+      ...outlierRemixes.map(r => ['New Topics You Can Cover', r.originalTitle, r.generatedTitle, r.link, r.views, r.velocity ?? '']),
+      ...minimalTwists.map(r => ['Outlier Topics', r.originalTitle, r.generatedTitle, r.link, r.views, r.velocity ?? '']),
     ];
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
@@ -269,58 +287,63 @@ export default function Dashboard() {
   if (!user) return null;
 
   return (
-    <main className="min-h-screen" style={{ backgroundColor: '#EAEFF8' }}>
+    <main className="min-h-screen" style={{ backgroundColor: '#eef4ff' }}>
       {/* Header */}
-      <div className="border-b border-sky-nav sticky top-0 z-10" style={{ backgroundColor: '#EAEFF8' }}>
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div>
-              <h1 className="font-heading font-[600] text-navy text-lg leading-tight">Viral Topic Finder</h1>
-              <p className="text-slate-muted text-xs">Find trending videos and generate content ideas with AI.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            {profile?.plan === 'free' && (
-              <button
-                onClick={() => document.getElementById('upgrade-section')?.scrollIntoView({ behavior: 'smooth' })}
-                className="text-white text-sm font-semibold px-4 py-2 rounded-lg transition-opacity hover:opacity-90"
-                style={{ backgroundColor: '#0f172a' }}
-              >
-                Upgrade to Pro
-              </button>
-            )}
-            <div className="text-right">
-              <p className="text-sm text-navy truncate max-w-[180px]">{user.email}</p>
-              <div className="flex items-center gap-2 justify-end mt-0.5">
-                <span
-                  className="text-xs font-semibold px-2 py-0.5 rounded"
-                  style={profile?.plan === 'paid'
-                    ? { backgroundColor: '#0f172a', color: '#ffffff' }
-                    : { backgroundColor: '#e2e8f0', color: '#64748b', border: '1px solid #c8d9ef' }}
-                >
-                  {profile?.plan === 'paid' ? 'Pro' : 'Free'}
-                </span>
-                <span className="text-xs text-slate-muted">
-                  {dailyRemaining}/{DAILY_LIMIT} today
-                  {monthlyRemaining != null && ` · ${monthlyRemaining}/90 this month`}
-                </span>
-              </div>
-            </div>
+      <div className="sticky top-0 z-10 border-b border-[#bfdbfe]" style={{ backgroundColor: 'rgba(238,244,255,0.85)', backdropFilter: 'blur(12px)' }}>
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-end gap-4">
+          {profile?.plan === 'free' && (
             <button
-              onClick={() => supabase.auth.signOut().then(() => router.replace('/login'))}
-              className="text-xs text-slate-muted hover:text-navy transition-colors"
+              onClick={() => document.getElementById('upgrade-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all hover:opacity-90 hover:shadow-md"
+              style={blueBtn}
             >
-              Sign out
+              Upgrade to Pro
             </button>
+          )}
+          <div className="text-right">
+            <p className="text-sm text-navy truncate max-w-[200px]">{user.email}</p>
+            <div className="flex items-center gap-2 justify-end mt-0.5">
+              <span
+                className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={profile?.plan === 'paid'
+                  ? { background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#ffffff' }
+                  : { backgroundColor: '#dbeafe', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+              >
+                {profile?.plan === 'paid' ? '✦ Pro' : 'Free'}
+              </span>
+              <span className="text-xs font-semibold text-[#2563eb]">
+                {credits.toLocaleString()} credits
+              </span>
+            </div>
           </div>
+          <button
+            onClick={() => supabase.auth.signOut().then(() => router.replace('/login'))}
+            className="text-xs text-slate-muted hover:text-[#2563eb] transition-colors"
+          >
+            Sign out
+          </button>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+
+        {/* Branding */}
+        <div className="text-center py-4">
+          <h1
+            className="font-heading font-[800] text-4xl leading-tight"
+            style={{ background: 'linear-gradient(135deg, #1d4ed8, #0ea5e9)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
+          >
+            Spector
+          </h1>
+          <p className="text-[#3b82f6] text-sm mt-1 font-medium">Find Topics in Minutes</p>
+        </div>
 
         {/* Setup Card */}
-        <div className="bg-white rounded-xl border border-[#c8d9ef] p-6">
-          <p className="text-xs font-semibold text-slate-muted uppercase tracking-widest mb-5">Setup</p>
+        <div className="bg-white rounded-2xl border border-[#bfdbfe] p-6 shadow-sm" style={{ boxShadow: '0 4px 24px rgba(37,99,235,0.07)' }}>
+          <div className="flex items-center gap-2 mb-5">
+            <span className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg,#2563eb,#0ea5e9)' }} />
+            <p className="text-xs font-bold text-[#2563eb] uppercase tracking-widest">Setup</p>
+          </div>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <label className="block">
@@ -338,13 +361,13 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => setPresetDropdownOpen(o => !o)}
-                    className="w-full flex items-center justify-between border border-[#c8d9ef] rounded-lg px-3 py-1.5 text-xs bg-white text-navy hover:border-navy transition-colors"
+                    className="w-full flex items-center justify-between border border-[#bfdbfe] rounded-lg px-3 py-1.5 text-xs bg-white text-navy hover:border-[#2563eb] transition-colors"
                   >
                     <span className="text-slate-muted">{nichePresets.length === 0 ? 'No saved niches yet' : 'Switch niche...'}</span>
                     <span className="text-slate-muted ml-2">▾</span>
                   </button>
                   {presetDropdownOpen && nichePresets.length > 0 && (
-                    <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-[#c8d9ef] rounded-lg shadow-md overflow-hidden">
+                    <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-[#bfdbfe] rounded-lg shadow-lg overflow-hidden">
                       {nichePresets.map(preset => (
                         <div key={preset.id} className="flex items-center justify-between px-3 py-2 hover:bg-[#f0f5fc] transition-colors">
                           <button
@@ -386,13 +409,8 @@ export default function Dashboard() {
                     localStorage.setItem('nichePresets', JSON.stringify(updated));
                     setPresetDropdownOpen(false);
                   }}
-                  className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
-                  style={{
-                    backgroundColor: !niche.trim() || nichePresets.length >= 5 ? '#f1f5f9' : '#0f172a',
-                    color: !niche.trim() || nichePresets.length >= 5 ? '#94a3b8' : '#ffffff',
-                    borderColor: !niche.trim() || nichePresets.length >= 5 ? '#c8d9ef' : '#0f172a',
-                    cursor: !niche.trim() || nichePresets.length >= 5 ? 'not-allowed' : 'pointer',
-                  }}
+                  className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all"
+                  style={!niche.trim() || nichePresets.length >= 5 ? blueBtnDisabled : { ...blueBtn, border: 'none' }}
                 >
                   Save{nichePresets.length > 0 ? ` (${nichePresets.length}/5)` : ''}
                 </button>
@@ -418,7 +436,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-navy">Competitor Channels</span>
-                <div className="flex border border-[#c8d9ef] rounded-lg overflow-hidden">
+                <div className="flex border border-[#bfdbfe] rounded-lg overflow-hidden">
                   {[5, 10, 15, 20].map((n, i) => (
                     <button
                       key={n}
@@ -430,9 +448,9 @@ export default function Dashboard() {
                           return next.slice(0, n);
                         });
                       }}
-                      className={`px-2.5 py-1 text-xs font-semibold transition-colors ${i > 0 ? 'border-l border-[#c8d9ef]' : ''}`}
+                      className={`px-2.5 py-1 text-xs font-semibold transition-all ${i > 0 ? 'border-l border-[#bfdbfe]' : ''}`}
                       style={competitorCount === n
-                        ? { backgroundColor: '#0f172a', color: '#ffffff' }
+                        ? { background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#ffffff' }
                         : { backgroundColor: '#ffffff', color: '#94a3b8' }}
                     >
                       {n}
@@ -440,14 +458,14 @@ export default function Dashboard() {
                   ))}
                 </div>
               </div>
-              <div className="flex border border-[#c8d9ef] rounded-lg overflow-hidden">
+              <div className="flex border border-[#bfdbfe] rounded-lg overflow-hidden">
                 {(['manual', 'auto'] as const).map((mode, i) => (
                   <button
                     key={mode}
                     onClick={() => setCompetitorMode(mode)}
-                    className={`px-3 py-1.5 text-xs font-semibold transition-colors ${i > 0 ? 'border-l border-[#c8d9ef]' : ''}`}
+                    className={`px-3 py-1.5 text-xs font-semibold transition-all ${i > 0 ? 'border-l border-[#bfdbfe]' : ''}`}
                     style={competitorMode === mode
-                      ? { backgroundColor: '#0f172a', color: '#ffffff' }
+                      ? { background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#ffffff' }
                       : { backgroundColor: '#ffffff', color: '#94a3b8' }}
                   >
                     {mode === 'manual' ? 'Add Manually' : 'Auto-discover'}
@@ -470,7 +488,7 @@ export default function Dashboard() {
                       localStorage.setItem('competitors', JSON.stringify(updated));
                     }}
                     placeholder={`@competitor${i + 1}`}
-                    className="border border-[#c8d9ef] rounded-lg px-3 py-2 text-sm bg-white text-navy placeholder-slate-muted focus:outline-none focus:border-navy transition-colors"
+                    className="border border-[#bfdbfe] rounded-lg px-3 py-2 text-sm bg-white text-navy placeholder-slate-muted focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 transition-all"
                   />
                 ))}
               </div>
@@ -488,11 +506,7 @@ export default function Dashboard() {
                     onClick={discoverChannels}
                     disabled={isDiscovering || !seedChannel.trim()}
                     className="flex-shrink-0 font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2"
-                    style={{
-                      backgroundColor: isDiscovering || !seedChannel.trim() ? '#e2e8f0' : '#0f172a',
-                      color: isDiscovering || !seedChannel.trim() ? '#94a3b8' : '#ffffff',
-                      cursor: isDiscovering || !seedChannel.trim() ? 'not-allowed' : 'pointer',
-                    }}
+                    style={isDiscovering || !seedChannel.trim() ? blueBtnDisabled : blueBtn}
                   >
                     {isDiscovering ? (
                       <>
@@ -519,7 +533,7 @@ export default function Dashboard() {
                           href={`https://www.youtube.com/${ch.handle}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-shrink-0 w-36 bg-sky-bg border border-[#c8d9ef] rounded-xl p-3 flex flex-col items-center gap-2 hover:border-navy transition-colors"
+                          className="flex-shrink-0 w-36 bg-[#eff6ff] border border-[#bfdbfe] rounded-xl p-3 flex flex-col items-center gap-2 hover:border-[#2563eb] hover:shadow-md transition-all"
                         >
                           {ch.avatar ? (
                             <img src={ch.avatar} alt={ch.name} className="w-12 h-12 rounded-full object-cover bg-[#e2e8f0]" />
@@ -539,11 +553,14 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="flex items-center gap-4 mb-5">
-            <span className="text-sm font-medium text-navy whitespace-nowrap">Remixes to generate:</span>
-            <input type="range" min={5} max={15} value={numRemixes} onChange={e => setNumRemixes(Number(e.target.value))} className="flex-1" />
-            <span className="text-sm font-semibold text-navy w-6">{numRemixes}</span>
+          <div className="flex items-center gap-4 mb-1">
+            <span className="text-sm font-medium text-navy whitespace-nowrap">Topics to generate:</span>
+            <input type="range" min={5} max={15} value={numRemixes} onChange={e => setNumRemixes(Number(e.target.value))} className="flex-1" style={{ accentColor: '#2563eb' }} />
+            <span className="text-sm font-bold w-8 text-center rounded-lg py-0.5" style={{ background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#fff' }}>{numRemixes}</span>
           </div>
+          <p className="text-xs mb-4" style={{ color: '#3b82f6' }}>
+            ~{remixCost} credits{ownChannel.trim() ? ' + 5 per own video' : ''} · <span className="font-semibold">{credits.toLocaleString()} available</span>
+          </p>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
@@ -552,12 +569,12 @@ export default function Dashboard() {
           <button
             onClick={run}
             disabled={!isReady || isRunning}
-            className="w-full flex items-center justify-center gap-2 font-semibold rounded-xl transition-colors"
+            className="w-full flex items-center justify-center gap-2 font-semibold rounded-xl transition-all hover:opacity-90 hover:shadow-lg"
             style={{
               padding: '16px 24px',
-              backgroundColor: !isReady || isRunning ? '#e2e8f0' : '#0f172a',
-              color: !isReady || isRunning ? '#94a3b8' : '#ffffff',
-              cursor: !isReady || isRunning ? 'not-allowed' : 'pointer',
+              ...(!isReady || isRunning
+                ? blueBtnDisabled
+                : { background: 'linear-gradient(135deg, #2563eb, #0ea5e9)', color: '#ffffff', cursor: 'pointer', boxShadow: '0 4px 15px rgba(37,99,235,0.35)' }),
             }}
           >
             {isRunning ? (
@@ -568,16 +585,39 @@ export default function Dashboard() {
                 </svg>
                 {stepLabel[step]}
               </>
-            ) : dailyRemaining === 0
-              ? 'Daily limit reached — come back tomorrow'
+            ) : credits < remixCost
+              ? `Not enough credits — need ${remixCost}, have ${credits}`
               : 'Run Analysis'}
           </button>
 
+          {credits > 0 && credits < 100 && !isRunning && (
+            <p className="text-xs text-amber-600 mt-2 text-center">
+              Running low — {credits} credits left.{' '}
+              <button
+                onClick={() => document.getElementById('upgrade-section')?.scrollIntoView({ behavior: 'smooth' })}
+                className="underline font-semibold"
+              >
+                Upgrade to get 10,000 credits
+              </button>
+            </p>
+          )}
+          {credits === 0 && profile?.signup_ip !== null && !isRunning && (
+            <p className="text-xs text-red-600 mt-2 text-center">
+              No credits remaining.{' '}
+              <button
+                onClick={() => document.getElementById('upgrade-section')?.scrollIntoView({ behavior: 'smooth' })}
+                className="underline font-semibold"
+              >
+                Upgrade to continue
+              </button>
+            </p>
+          )}
+
           {/* Upgrade section */}
           {profile?.plan === 'free' && (
-            <div id="upgrade-section" className="mt-4 pt-4 border-t border-[#e2e8f0]">
+            <div id="upgrade-section" className="mt-4 pt-4 border-t border-[#bfdbfe]">
               {existingPayment?.status === 'pending' || paymentSubmitted ? (
-                <div className="bg-sky-bg border border-[#c8d9ef] rounded-lg p-3">
+                <div className="bg-[#eff6ff] border border-[#bfdbfe] rounded-lg p-3">
                   <p className="text-sm font-semibold text-navy">Payment under review</p>
                   <p className="text-xs text-slate-muted mt-0.5">
                     Transaction ID: <span className="font-mono text-slate-mid">{existingPayment?.transaction_id ?? transactionId}</span>
@@ -590,7 +630,7 @@ export default function Dashboard() {
                     Upgrade to Pro — $5/month
                     {pkrAmount ? <span className="text-slate-muted font-normal"> (PKR {pkrAmount.toLocaleString()})</span> : ''}
                   </p>
-                  <div className="bg-sky-bg border border-[#c8d9ef] rounded-lg p-3 mb-3">
+                  <div className="bg-[#eff6ff] border border-[#bfdbfe] rounded-lg p-3 mb-3">
                     <p className="text-xs text-slate-muted mb-1">Send via EasyPaisa to:</p>
                     <p className="text-lg font-bold text-navy tracking-wide">03355870108</p>
                     <p className="text-sm text-slate-mid">Hassan Ali</p>
@@ -611,11 +651,7 @@ export default function Dashboard() {
                       onClick={submitPayment}
                       disabled={submittingPayment || !transactionId.trim()}
                       className="flex-shrink-0 font-semibold px-4 py-2 rounded-lg text-sm transition-colors"
-                      style={{
-                        backgroundColor: submittingPayment || !transactionId.trim() ? '#e2e8f0' : '#0f172a',
-                        color: submittingPayment || !transactionId.trim() ? '#94a3b8' : '#ffffff',
-                        cursor: submittingPayment || !transactionId.trim() ? 'not-allowed' : 'pointer',
-                      }}
+                      style={submittingPayment || !transactionId.trim() ? blueBtnDisabled : blueBtn}
                     >
                       {submittingPayment ? 'Submitting...' : 'Submit'}
                     </button>
@@ -630,27 +666,30 @@ export default function Dashboard() {
         {/* Trending Outliers */}
         {outliers.length > 0 && (
           <section>
-            <div className="flex items-baseline gap-3 mb-4">
-              <h2 className="text-2xl font-semibold text-navy">Trending Outliers</h2>
-              <span className="text-xs font-semibold text-slate-muted uppercase tracking-widest">Top {outliers.length}</span>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(180deg,#2563eb,#0ea5e9)' }} />
+                <h2 className="text-2xl font-bold text-navy">Trending Outliers</h2>
+              </div>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#fff' }}>Top {outliers.length}</span>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {outliers.map((v, i) => (
-                <div key={i} className="bg-white rounded-xl border border-[#c8d9ef] p-4 flex gap-3">
+                <div key={i} className="bg-white rounded-xl border border-[#bfdbfe] p-4 flex gap-3 hover:border-[#2563eb] hover:shadow-md transition-all" style={{ boxShadow: '0 2px 8px rgba(37,99,235,0.04)' }}>
                   <img
                     src={thumbUrl(v.link)} alt=""
-                    className="w-28 h-16 object-cover rounded-lg bg-sky-bg flex-shrink-0"
-                    style={{ border: '1px solid #c8d9ef' }}
+                    className="w-28 h-16 object-cover rounded-lg flex-shrink-0"
+                    style={{ border: '1px solid #bfdbfe' }}
                   />
                   <div className="flex-1 min-w-0">
                     <a href={v.link} target="_blank" rel="noopener noreferrer"
-                      className="text-sm font-medium text-navy hover:text-slate-mid line-clamp-2 leading-snug block transition-colors">
+                      className="text-sm font-medium text-navy hover:text-[#2563eb] line-clamp-2 leading-snug block transition-colors">
                       {v.title}
                     </a>
                     <p className="text-xs text-slate-muted mt-0.5">{v.channel}</p>
                     <div className="flex gap-3 mt-1 text-xs">
                       <span className="text-slate-muted">{fmt(v.views)} views</span>
-                      <span className="text-z-orange font-semibold">{fmt(v.velocity)}/hr</span>
+                      <span className="font-bold" style={{ color: '#0ea5e9' }}>{fmt(v.velocity)}/hr</span>
                       <span className="text-slate-muted">{Math.round(v.hoursSinceUpload)}h ago</span>
                     </div>
                   </div>
@@ -663,26 +702,29 @@ export default function Dashboard() {
         {/* 10% Twist Titles */}
         {minimalTwists.length > 0 && (
           <section>
-            <h2 className="text-2xl font-semibold text-navy mb-1">10% Twist Titles</h2>
-            <p className="text-sm text-slate-muted mb-4">Same title, stronger words — just enough to avoid duplicate content.</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(180deg,#2563eb,#0ea5e9)' }} />
+              <h2 className="text-2xl font-bold text-navy">Outlier Topics</h2>
+            </div>
+            <p className="text-sm text-slate-muted mb-4 ml-3">Same title, stronger words — just enough to avoid duplicate content.</p>
             <div className="space-y-3">
               {minimalTwists.map((r, i) => (
-                <div key={i} className="bg-white rounded-xl border border-[#c8d9ef] p-4 flex gap-4 items-start">
+                <div key={i} className="bg-white rounded-xl border border-[#bfdbfe] p-4 flex gap-4 items-start hover:border-[#2563eb] hover:shadow-md transition-all" style={{ boxShadow: '0 2px 8px rgba(37,99,235,0.04)' }}>
                   <img src={thumbUrl(r.link)} alt=""
-                    className="w-28 h-16 object-cover rounded-lg bg-sky-bg flex-shrink-0"
-                    style={{ border: '1px solid #c8d9ef' }} />
+                    className="w-28 h-16 object-cover rounded-lg flex-shrink-0"
+                    style={{ border: '1px solid #bfdbfe' }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-slate-muted mb-1 line-clamp-1">
                       Original: <span className="text-slate-mid">{r.originalTitle}</span>
                     </p>
                     <div className="flex items-start gap-2">
-                      <p className="flex-1 text-sm font-semibold text-navy bg-sky-bg border border-[#c8d9ef] rounded-lg px-3 py-2">
+                      <p className="flex-1 text-sm font-semibold text-[#1d4ed8] bg-[#eff6ff] border border-[#bfdbfe] rounded-lg px-3 py-2">
                         {r.generatedTitle}
                       </p>
                       <button onClick={() => copy(r.generatedTitle)}
-                        className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg transition-colors hover:bg-[#e2e8f0]"
-                        style={copyBtnStyle}>
-                        {copied === r.generatedTitle ? 'Copied' : 'Copy'}
+                        className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg transition-all hover:shadow-sm"
+                        style={copied === r.generatedTitle ? { ...blueBtn, padding: '8px 12px' } : copyBtnStyle}>
+                        {copied === r.generatedTitle ? '✓ Copied' : 'Copy'}
                       </button>
                     </div>
                   </div>
@@ -695,29 +737,32 @@ export default function Dashboard() {
         {/* Fresh Angles */}
         {viralRepeats.length > 0 && (
           <section>
-            <h2 className="text-2xl font-semibold text-navy mb-4">Fresh Angles for Your Top Videos</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(180deg,#2563eb,#0ea5e9)' }} />
+              <h2 className="text-2xl font-bold text-navy">New Topics Based on Previous Viral Topics</h2>
+            </div>
             <div className="space-y-4">
               {viralRepeats.map((r, i) => (
-                <div key={i} className="bg-white rounded-xl border border-[#c8d9ef] p-4 flex gap-4 items-start">
+                <div key={i} className="bg-white rounded-xl border border-[#bfdbfe] p-4 flex gap-4 items-start hover:border-[#2563eb] hover:shadow-md transition-all" style={{ boxShadow: '0 2px 8px rgba(37,99,235,0.04)' }}>
                   <img src={thumbUrl(r.link)} alt=""
-                    className="w-28 h-16 object-cover rounded-lg bg-sky-bg flex-shrink-0"
-                    style={{ border: '1px solid #c8d9ef' }} />
+                    className="w-28 h-16 object-cover rounded-lg flex-shrink-0"
+                    style={{ border: '1px solid #bfdbfe' }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-slate-muted mb-2">
                       Original:{' '}
-                      <a href={r.link} target="_blank" rel="noopener noreferrer" className="text-slate-mid hover:text-navy transition-colors">
+                      <a href={r.link} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:text-[#1d4ed8] transition-colors">
                         {r.originalTitle}
                       </a>
                       {' '}— {fmt(r.views)} views
                     </p>
                     <div className="flex items-start gap-2">
-                      <p className="flex-1 text-sm font-semibold text-navy bg-sky-bg border border-[#c8d9ef] rounded-lg px-3 py-2">
+                      <p className="flex-1 text-sm font-semibold text-[#1d4ed8] bg-[#eff6ff] border border-[#bfdbfe] rounded-lg px-3 py-2">
                         {r.generatedTitle}
                       </p>
                       <button onClick={() => copy(r.generatedTitle)}
-                        className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg transition-colors hover:bg-[#e2e8f0]"
-                        style={copyBtnStyle}>
-                        {copied === r.generatedTitle ? 'Copied' : 'Copy'}
+                        className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg transition-all hover:shadow-sm"
+                        style={copied === r.generatedTitle ? { ...blueBtn, padding: '8px 12px' } : copyBtnStyle}>
+                        {copied === r.generatedTitle ? '✓ Copied' : 'Copy'}
                       </button>
                     </div>
                   </div>
@@ -731,28 +776,31 @@ export default function Dashboard() {
         {outlierRemixes.length > 0 && (
           <section>
             <div className="mb-4">
-              <h2 className="text-2xl font-semibold text-navy">
-                Outlier Remixes
-                <span className="ml-3 text-xs font-semibold text-slate-muted uppercase tracking-widest">{outlierRemixes.length} ideas</span>
-              </h2>
-              <p className="text-sm text-slate-muted mt-1">Same emotional energy as a trending video, with a fresh angle for your channel.</p>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(180deg,#2563eb,#0ea5e9)' }} />
+                  <h2 className="text-2xl font-bold text-navy">New Topics You Can Cover</h2>
+                </div>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#fff' }}>{outlierRemixes.length} ideas</span>
+              </div>
+              <p className="text-sm text-slate-muted mt-1 ml-3">Same emotional energy as a trending video, with a fresh angle for your channel.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {outlierRemixes.map((r, i) => (
-                <div key={i} className="bg-white rounded-xl border border-[#c8d9ef] p-4">
+                <div key={i} className="bg-white rounded-xl border border-[#bfdbfe] p-4 hover:border-[#2563eb] hover:shadow-md transition-all" style={{ boxShadow: '0 2px 8px rgba(37,99,235,0.04)' }}>
                   <p className="text-xs text-slate-muted line-clamp-1 mb-1">
                     Inspired by:{' '}
-                    <a href={r.link} target="_blank" rel="noopener noreferrer" className="text-slate-mid hover:text-navy transition-colors">
+                    <a href={r.link} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:text-[#1d4ed8] transition-colors">
                       {r.originalTitle}
                     </a>
                   </p>
-                  <p className="text-xs text-z-orange font-semibold mb-2">{fmt(r.velocity ?? 0)}/hr velocity</p>
+                  <p className="text-xs font-bold mb-2" style={{ color: '#0ea5e9' }}>{fmt(r.velocity ?? 0)}/hr velocity</p>
                   <div className="flex items-start gap-2">
-                    <p className="flex-1 text-sm font-semibold text-navy leading-snug">{r.generatedTitle}</p>
+                    <p className="flex-1 text-sm font-semibold text-[#1d4ed8] leading-snug bg-[#eff6ff] rounded-lg px-3 py-2">{r.generatedTitle}</p>
                     <button onClick={() => copy(r.generatedTitle)}
-                      className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg transition-colors hover:bg-[#e2e8f0] whitespace-nowrap"
-                      style={copyBtnStyle}>
-                      {copied === r.generatedTitle ? 'Copied' : 'Copy'}
+                      className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg transition-all hover:shadow-sm whitespace-nowrap"
+                      style={copied === r.generatedTitle ? { ...blueBtn, padding: '8px 12px' } : copyBtnStyle}>
+                      {copied === r.generatedTitle ? '✓ Copied' : 'Copy'}
                     </button>
                   </div>
                 </div>
@@ -766,8 +814,8 @@ export default function Dashboard() {
           <div className="flex justify-center pb-8">
             <button
               onClick={downloadCSV}
-              className="font-semibold rounded-xl text-white hover:opacity-90 transition-opacity"
-              style={{ padding: '16px 32px', backgroundColor: '#0f172a' }}
+              className="font-semibold rounded-xl text-white transition-all hover:opacity-90 hover:shadow-lg"
+              style={{ padding: '16px 32px', background: 'linear-gradient(135deg, #2563eb, #0ea5e9)', boxShadow: '0 4px 15px rgba(37,99,235,0.35)' }}
             >
               Download All Results as CSV
             </button>
