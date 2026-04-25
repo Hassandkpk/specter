@@ -5,7 +5,7 @@ export const DAILY_LIMIT_FREE = 3;
 export const DAILY_LIMIT_PAID = 5;
 export const MONTHLY_LIMIT_PAID = 150;
 
-export const FREE_CREDITS = 500;
+export const FREE_CREDITS = 200;
 export const PAID_CREDITS_MONTHLY = 10_000;
 export const CREDIT_PER_REMIX = 10;
 export const CREDIT_PER_OWN_VIDEO = 5;

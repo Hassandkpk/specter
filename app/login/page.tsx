@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [authPassword, setAuthPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [signupSent, setSignupSent] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -24,19 +25,33 @@ export default function LoginPage() {
     setAuthError('');
     const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
     if (error) {
-      setAuthError(error.message);
+      setAuthError(friendlyError(error.message));
       setAuthLoading(false);
     } else {
       router.replace('/dashboard');
     }
   };
 
+  const friendlyError = (msg: string) => {
+    if (/rate limit/i.test(msg) || /request this after/i.test(msg)) return 'Too many signups right now — please try again in a few minutes.';
+    if (/already registered/i.test(msg) || /already been registered/i.test(msg)) return 'An account with this email already exists. Try signing in instead.';
+    if (/password.*characters/i.test(msg)) return 'Password must be at least 6 characters.';
+    if (/invalid.*email/i.test(msg)) return 'Please enter a valid email address.';
+    if (/invalid.*credentials/i.test(msg)) return 'Wrong email or password.';
+    return msg;
+  };
+
   const signUp = async () => {
+    if (signupSent) return;
     setAuthLoading(true);
     setAuthError('');
     const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
-    if (error) setAuthError(error.message);
-    else setAuthError('Check your email to confirm your account!');
+    if (error) {
+      setAuthError(friendlyError(error.message));
+    } else {
+      setSignupSent(true);
+      setAuthError('Account created — check your inbox to confirm, then sign in.');
+    }
     setAuthLoading(false);
   };
 
@@ -71,7 +86,7 @@ export default function LoginPage() {
             {(['login', 'signup'] as const).map(mode => (
               <button
                 key={mode}
-                onClick={() => { setAuthMode(mode); setAuthError(''); }}
+                onClick={() => { setAuthMode(mode); setAuthError(''); setSignupSent(false); }}
                 className="flex-1 pb-3 text-sm font-semibold text-navy transition-all"
                 style={authMode === mode
                   ? { boxShadow: 'rgb(15, 23, 42) 0px -3px 0px 0px inset' }
@@ -105,15 +120,15 @@ export default function LoginPage() {
             )}
             <button
               onClick={authMode === 'login' ? signIn : signUp}
-              disabled={authLoading || !authEmail || !authPassword}
+              disabled={authLoading || !authEmail || !authPassword || signupSent}
               className="w-full py-3 rounded-lg text-sm font-semibold transition-colors mt-1"
               style={{
-                backgroundColor: authLoading || !authEmail || !authPassword ? '#e2e8f0' : '#0f172a',
-                color: authLoading || !authEmail || !authPassword ? '#94a3b8' : '#ffffff',
-                cursor: authLoading || !authEmail || !authPassword ? 'not-allowed' : 'pointer',
+                backgroundColor: authLoading || !authEmail || !authPassword || signupSent ? '#e2e8f0' : '#0f172a',
+                color: authLoading || !authEmail || !authPassword || signupSent ? '#94a3b8' : '#ffffff',
+                cursor: authLoading || !authEmail || !authPassword || signupSent ? 'not-allowed' : 'pointer',
               }}
             >
-              {authLoading ? 'Loading...' : authMode === 'login' ? 'Sign in' : 'Create account'}
+              {authLoading ? 'Loading...' : signupSent ? 'Check your email' : authMode === 'login' ? 'Sign in' : 'Create account'}
             </button>
           </div>
         </div>

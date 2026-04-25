@@ -597,7 +597,7 @@ export default function Dashboard() {
                 onClick={() => document.getElementById('upgrade-section')?.scrollIntoView({ behavior: 'smooth' })}
                 className="underline font-semibold"
               >
-                Upgrade to get 10,000 credits
+                Upgrade to get 10,000 credits/month
               </button>
             </p>
           )}
